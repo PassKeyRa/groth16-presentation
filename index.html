@@ -619,8 +619,8 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
       </div>
       <div class="panel" style="padding:20px 26px;border-color:var(--g1)">
         <div class="mtxname" style="text-align:left;color:var(--muted)">3 · SO THE CHECK BECOMES</div>
-        <p class="formula" style="font-size:25px;margin:4px 0 0;text-align:left">e(A, B) = e([<span class="tagG2">α</span>]₁, [<span class="tagG2">β</span>]₂) · e(<span class="tagG1">C</span>, [1]₂)</p>
-        <p class="cap" style="text-align:left;margin-top:6px"><b class="tagG2">α·β</b> now sits on the <b>right-hand side</b> as a fixed setup constant — an equation you can only balance by carrying α, β through honest A, B, C, never by inventing points</p>
+        <p class="formula" style="font-size:25px;margin:4px 0 0;text-align:left">A·B = [<span class="tagG2">α</span>]₁·[<span class="tagG2">β</span>]₂ + <span class="tagG1">C</span>·[1]₂</p>
+        <p class="cap" style="text-align:left;margin-top:6px">notation: X·Y is the pairing of two points (multiply hidden values), + combines the results<br><b class="tagG2">α·β</b> now sits on the <b>right-hand side</b> as a fixed setup constant — an equation you can only balance by carrying α, β through honest A, B, C, never by inventing points</p>
       </div>
     </div>
     <div class="col" style="width:390px;justify-content:center;gap:16px">
@@ -645,7 +645,7 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
   <div class="body" style="margin-top:16px">
     <div class="col grow" style="justify-content:center;gap:18px">
       <div class="panel" style="padding:26px 30px;text-align:center">
-        <p class="formula big" style="margin:0">e(A, B) = e([α]₁, [β]₂) · e(<span class="tagG2">Σ<sub>i ≤ ℓ</sub> wᵢ[Ψᵢ]₁</span>, [1]₂) · e(<span class="tagG1">C</span>, [1]₂)</p>
+        <p class="formula big" style="margin:0">A·B = [α]₁·[β]₂ + <span class="tagG2">(Σ<sub>i ≤ ℓ</sub> wᵢ[Ψᵢ]₁)</span>·[1]₂ + <span class="tagG1">C</span>·[1]₂</p>
         <div style="display:flex;justify-content:center;gap:60px;margin-top:18px">
           <div style="border-top:2px solid var(--g2);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g2)"><b>public slots (1, out)</b> — the VERIFIER computes this sum itself from the public inputs + verification key. This is how public inputs enter the check.</p></div>
           <div style="border-top:2px solid var(--g1);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g1)"><b>private slots (x, v₁, v₂) + H·Z</b> — the PROVER folds these into C. The witness never leaves this point.</p></div>
@@ -703,7 +703,7 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
         <div class="mtxname" style="text-align:left;color:var(--muted)">THE SALTED PROOF</div>
         <p class="formula" style="font-size:24px;text-align:left;margin:8px 0 0;line-height:1.9">A = [α + A(τ) + <b class="tagGT">r·δ</b>]₁<br>B = [β + B(τ) + <b class="tagGT">s·δ</b>]₂<br>C = [ ⟨private Ψ⟩∕δ + H·Z∕δ + <b class="tagGT">s·A + r·B − r·s·δ</b> ]₁</p>
       </div>
-      <p class="cap" style="text-align:left">the <b class="tagGT">rose terms</b> in C are built to exactly cancel the r·δ and s·δ cross-terms when the pairing expands e(A, B) — the equation still balances, for <i>any</i> r, s<br>· δ-scaling keeps the salt inside the prover’s lane from the last slide</p>
+      <p class="cap" style="text-align:left">the <b class="tagGT">rose terms</b> in C are built to exactly cancel the r·δ and s·δ cross-terms when the product A·B expands — the equation still balances, for <i>any</i> r, s<br>· δ-scaling keeps the salt inside the prover’s lane from the last slide</p>
     </div>
   </div>
 </section>
@@ -1073,14 +1073,14 @@ txt(v,310,150,'✂ terms cannot cross — wrong lane keeps a stray 1/γ or 1/δ'
 (function(){const v=document.getElementById('fig-vereq');if(!v)return;
 const y=95;
 const segs=[
- ['e(A, B)',C.chalk,'the prover’s claim','α+A(τ)+…  ×  β+B(τ)+…'],
+ ['A·B',C.chalk,'the prover’s claim','α+A(τ)+…  ×  β+B(τ)+…'],
  ['=',C.faint,'',''],
- ['e([α]₁, [β]₂)',C.g2,'consistency anchor','fixed at setup'],
- ['·',C.faint,'',''],
- ['e(Σ aᵢ·Lᵢ, [γ]₂)',C.gt,'public-input lane','verifier computes'],
- ['·',C.faint,'',''],
- ['e(C, [δ]₂)',C.g1,'witness + H·Z lane','prover computes']];
-let x=20;
+ ['[α]₁·[β]₂',C.g2,'consistency anchor','fixed at setup'],
+ ['+',C.faint,'',''],
+ ['(Σ aᵢLᵢ)·[γ]₂',C.gt,'public-input lane','verifier computes'],
+ ['+',C.faint,'',''],
+ ['C·[δ]₂',C.g1,'witness + H·Z lane','prover computes']];
+let x=120;
 segs.forEach(([s,c,job,sub])=>{
  const t=txt(v,x,y,s,c,s.length<3?30:31,'start',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
  const w=(s.length<3?26:s.length*15.5)+18;
@@ -1088,7 +1088,7 @@ segs.forEach(([s,c,job,sub])=>{
   txt(v,x+(s.length*15.5)/2,y+74,job,c,15,'middle',{'font-weight':600});
   txt(v,x+(s.length*15.5)/2,y+96,sub,C.faint,12.5);}
  x+=w+ (s.length<3?4:20);});
-txt(v,500,30,'accept  ⇔  this single G_T equation holds',C.mut,16);
+txt(v,500,30,'accept  ⇔  this single equation holds (X·Y = the pairing of two points, checked in G_T)',C.mut,16);
 })();
 
 /* ---------- pipeline ---------- */
