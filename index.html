@@ -267,6 +267,34 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
   </div>
 </section>
 
+<!-- ============ 8b · BN254 ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 4 / 4 — the concrete instantiation (FYI)</p>
+  <h2>BN254 (“BN128”): three groups, three fields</h2>
+  <div class="body" style="flex-direction:column;gap:18px">
+    <div style="display:flex;gap:18px">
+      <div class="panel" style="flex:1;border-top:3px solid var(--g1)">
+        <div class="mtxname" style="text-align:left" ><span class="tagG1">G₁ — the base curve</span></div>
+        <p class="formula" style="font-size:21px;text-align:left;margin:6px 0">y² = x³ + 3 &nbsp;over 𝔽<sub>p</sub></p>
+        <p class="cap" style="text-align:left;margin:0">coordinates: two numbers mod p<br>(p = a 254-bit prime)<br>a point ≈ <b>64 bytes</b></p>
+      </div>
+      <div class="panel" style="flex:1;border-top:3px solid var(--g2)">
+        <div class="mtxname" style="text-align:left"><span class="tagG2">G₂ — the twist</span></div>
+        <p class="formula" style="font-size:21px;text-align:left;margin:6px 0">y² = x³ + 3∕(9+u) &nbsp;over 𝔽<sub>p²</sub></p>
+        <p class="cap" style="text-align:left;margin:0">same story, bigger coordinates: each is a <i>pair</i> a + b·u — like complex numbers mod p<br>a point ≈ <b>128 bytes</b></p>
+      </div>
+      <div class="panel" style="flex:1;border-top:3px solid var(--gt)">
+        <div class="mtxname" style="text-align:left"><span class="tagGT">G_T — not a curve at all</span></div>
+        <p class="formula" style="font-size:21px;text-align:left;margin:6px 0">subgroup of 𝔽<sub>p¹²</sub><sup>×</sup></p>
+        <p class="cap" style="text-align:left;margin:0">pairing outputs live in a huge extension field (12 numbers mod p) and are <i>multiplied</i>, never sent on-chain</p>
+      </div>
+    </div>
+    <div class="panel" style="border-color:var(--g1)">
+      <p style="font:400 18px/1.65 var(--ui);color:var(--muted);margin:0">The pairing <span class="math" style="color:var(--chalk)">e : G₁ × G₂ → G_T</span> doesn’t “move” a point between curves — it <b style="color:var(--chalk)">consumes one point from each group</b> and outputs an 𝔽<sub>p¹²</sub> element, with the scalars multiplying in the exponent. All three groups share the <b style="color:var(--chalk)">same prime order r ≈ 2²⁵⁴</b> — so all scalars (witness values, circuit arithmetic) live in 𝔽<sub>r</sub>, while point <i>coordinates</i> live in 𝔽<sub>p</sub>, 𝔽<sub>p²</sub>, 𝔽<sub>p¹²</sub>. Two different fields — the slide-5 distinction, at full scale.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 9 · TOOLBOX RECAP ============ -->
 <section class="slide" data-sec="1 · Math toolbox">
   <p class="eyebrow">Toolbox — complete</p>
@@ -295,14 +323,21 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
         <p class="formula big" style="margin:0">“I know x such that<br><span class="math">x³ + x + 5 = 35</span>”</p>
         <p class="cap">(the secret: x = 3)</p>
       </div>
-      <ul class="pts" style="gap:14px">
-        <li><b>Flatten</b> into gates of the form <span class="math">left ⊙ right = out</span></li>
+      <div class="panel" style="padding:18px 24px">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">FLATTENED — ONE GATE PER LINE</div>
+        <div style="font:400 20px/2 var(--mono);font-variant-numeric:tabular-nums;margin-top:6px">
+          <div><span style="color:var(--faint)">gate 1:</span> &nbsp;v₁ <span style="color:var(--faint)">=</span> x <b class="tagG2">·</b> x</div>
+          <div><span style="color:var(--faint)">gate 2:</span> &nbsp;v₂ <span style="color:var(--faint)">=</span> v₁ <b class="tagG2">·</b> x</div>
+          <div><span style="color:var(--faint)">gate 3:</span> &nbsp;out <span style="color:var(--faint)">=</span> v₂ + x + 5</div>
+        </div>
+      </div>
+      <ul class="pts" style="gap:12px">
         <li>Each gate: <b>at most one multiplication</b></li>
         <li>Additions and constants ride along inside a gate’s linear combinations — they’re free</li>
       </ul>
     </div>
     <div class="col grow" style="align-items:center;justify-content:center">
-      <svg id="fig-circuit" width="620" height="420" viewBox="0 0 620 420"></svg>
+      <svg id="fig-circuit" width="620" height="360" viewBox="0 0 620 360"></svg>
     </div>
   </div>
 </section>
@@ -341,14 +376,20 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
     <div class="col grow" style="align-items:center;gap:26px">
       <p class="formula big">(A·w) ∘ (B·w) = C·w</p>
       <p class="cap" style="margin-top:-14px">∘ = row-by-row (Hadamard) product · each <b>row</b> is one gate: <span class="math">left · right = out</span></p>
-      <div style="display:flex;gap:34px;align-items:center">
+      <div style="display:flex;gap:20px;align-items:center">
         <div><div class="mtxname tagG1">A · “left”</div><table class="mtx" id="mA"></table></div>
+        <span style="font:400 26px var(--disp)">·</span>
+        <table class="mtx vec" id="vA"></table>
         <span style="font:400 30px var(--disp)">∘</span>
         <div><div class="mtxname tagG2">B · “right”</div><table class="mtx" id="mB"></table></div>
+        <span style="font:400 26px var(--disp)">·</span>
+        <table class="mtx vec" id="vB"></table>
         <span style="font:400 30px var(--disp)">=</span>
         <div><div class="mtxname tagGT">C · “out”</div><table class="mtx" id="mC"></table></div>
+        <span style="font:400 26px var(--disp)">·</span>
+        <table class="mtx vec" id="vC"></table>
       </div>
-      <p class="cap">columns = witness slots <span class="mono">(1, out, x, v₁, v₂)</span> · rows = gates · highlighted row 1 reads: <b>“x · x = v₁”</b><br>matrices are mostly zeros — R1CS is sparse bookkeeping, nothing deep</p>
+      <p class="cap">every matrix multiplies the <b>same</b> witness column w = <span class="mono">(1, out, x, v₁, v₂)</span>ᵀ · rows = gates, columns = witness slots<br>highlighted row 1 reads <b>“x · x = v₁”</b> · matrices are mostly zeros — R1CS is sparse bookkeeping, nothing deep</p>
     </div>
   </div>
 </section>
@@ -384,12 +425,16 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
       <svg id="fig-sz" width="640" height="400" viewBox="0 0 640 400"></svg>
       <p class="cap">two <i>different</i> degree-d polynomials can agree on at most d points (here d = 3)</p>
     </div>
-    <div class="col" style="width:400px;justify-content:center;gap:20px">
-      <div class="panel">
-        <div class="mtxname" style="text-align:left;color:var(--muted)">SCHWARTZ–ZIPPEL, INFORMALLY</div>
-        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0">Evaluate both at a <b style="color:var(--chalk)">random point τ</b> from a field of size ≈ 2²⁵⁴. If they differ anywhere, they differ at τ with overwhelming probability: <span class="mono">d / p ≈ 2⁻²³⁰</span>.</p>
+    <div class="col" style="width:400px;justify-content:center;gap:18px">
+      <div class="panel" style="border-left:4px solid var(--g1)">
+        <div class="mtxname" style="text-align:left;color:var(--g1)">THE WHOLE POINT OF POLYNOMIALS</div>
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0">Comparing two vectors of m entries = <b style="color:var(--chalk)">m comparisons</b>, one per entry.<br>Comparing two polynomials = <b style="color:var(--chalk)">1 comparison</b>, at a single random point.</p>
       </div>
-      <p class="formula" style="text-align:left;font-size:25px">millions of constraints<br>→ one polynomial identity<br>→ <b>one evaluation at τ</b></p>
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">WHY THAT’S SOUND — SCHWARTZ–ZIPPEL</div>
+        <p style="font:400 17px/1.55 var(--ui);color:var(--muted);margin:0">If they differ anywhere, they differ at a random τ from a ≈ 2²⁵⁴-size field with overwhelming probability — cheating survives with chance <span class="mono">d / p ≈ 2⁻²³⁰</span>.</p>
+      </div>
+      <p class="formula" style="text-align:left;font-size:23px">so: encode all m constraints<br>as polynomials → check <b>once, at τ</b></p>
     </div>
   </div>
 </section>
@@ -404,10 +449,13 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
       <p class="cap">vector <span class="mono">(4, 7, 1)</span> at x = 1, 2, 3 → the unique parabola through the three points</p>
     </div>
     <div class="col" style="width:400px;justify-content:center;gap:18px">
-      <ul class="pts" style="gap:18px">
+      <div class="panel" style="border-left:4px solid var(--g1)">
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0"><b style="color:var(--chalk)">This is the vector → polynomial converter.</b> Treat entry i as the value at x = i, interpolate — every vector becomes a polynomial, losslessly, and back.</p>
+      </div>
+      <ul class="pts" style="gap:14px">
         <li>Each faint “bump” ℓᵢ(x) equals <b>1 at its point, 0 at the others</b></li>
         <li>Scale each bump by its value and <b>add</b> — the sum passes through every point</li>
-        <li>n values &nbsp;⇔&nbsp; unique polynomial of degree &lt; n. <b>A lossless change of encoding.</b></li>
+        <li>n values ⇔ unique polynomial of degree &lt; n — so our R1CS vectors qualify for the one-point equality check</li>
       </ul>
       <p class="cap" style="text-align:left">That’s all we need — closed formulas are a footnote.</p>
     </div>
@@ -426,6 +474,28 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
   <p class="cap">each <b>column</b> of A (one witness slot) read down the gates → one polynomial Aᵢ(x) · same for B and C<br>then bundle with the witness: <span class="math" style="color:var(--chalk)">A(x) = Σ wᵢ·Aᵢ(x)</span> — matrices are gone, polynomials remain</p>
 </section>
 
+<!-- ============ 16b · DEGREE IMBALANCE ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">Quadratic Arithmetic Program — a wrinkle</p>
+  <h2>A·B and C agree only at the gates</h2>
+  <div class="body" style="margin-top:10px">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-deg" width="640" height="390" viewBox="0 0 640 390"></svg>
+      <p class="cap">our real example: <span class="math">A(x)·B(x)</span> has degree 4, <span class="math">C(x)</span> degree 2 —<br>different curves that <b>cross exactly at the gate points</b> x = 1, 2, 3</p>
+    </div>
+    <div class="col" style="width:420px;justify-content:center;gap:16px">
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <div class="mtxname" style="text-align:left;color:var(--bad)">SO WE CAN’T JUST WRITE A·B = C</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">deg(A·B) = 2(n−1), deg(C) = n−1 — as <i>polynomials</i> they can never be equal, even when every gate is satisfied.</p>
+      </div>
+      <div class="panel" style="border-left:4px solid var(--ok)">
+        <div class="mtxname" style="text-align:left;color:var(--ok)">FIX — A BALANCING TERM THAT’S 0 AT EVERY GATE</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">Add something to C’s side that absorbs the degree gap but <b style="color:var(--chalk)">vanishes at x = 1 … n</b>, so it can’t disturb the gate checks. A polynomial with roots at all gates is by definition a <b style="color:var(--chalk)">multiple of Z(x) = (x−1)(x−2)⋯(x−n)</b> — so the term must have the form <span class="math" style="color:var(--chalk)">H(x)·Z(x)</span>. The prover can’t smuggle in anything else.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 17 · QAP EQUATION ============ -->
 <section class="slide" data-sec="3 · QAP">
   <p class="eyebrow">Quadratic Arithmetic Program</p>
@@ -437,13 +507,13 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
     </div>
     <div class="col" style="width:420px;justify-content:center;gap:18px">
       <div class="panel" style="text-align:center;padding:24px">
-        <p class="formula big" style="margin:0">A(x)·B(x) − C(x) = H(x)·Z(x)</p>
-        <p class="cap">Z(x) = (x−1)(x−2)(x−3) — the <b>vanishing polynomial</b>, zero at every gate</p>
+        <p class="formula big" style="margin:0">A(x)·B(x) = C(x) + <span class="tagG1">H(x)·Z(x)</span></p>
+        <p class="cap">Z(x) = (x−1)(x−2)(x−3) — the <b>vanishing polynomial</b> · the balancer from the previous slide, written on C’s side · equivalently: A·B − C = H·Z</p>
       </div>
       <ul class="pts" style="gap:14px">
-        <li>gate i satisfied ⇔ the difference is <b>zero at x = i</b></li>
-        <li>zero at <i>all</i> gates ⇔ <b>Z(x) divides it</b> — quotient H(x) exists</li>
-        <li>prover’s job: exhibit H(x). <b>One divisibility = the whole execution.</b></li>
+        <li>gate i satisfied ⇔ the difference A·B − C is <b>zero at x = i</b> (plot ←)</li>
+        <li>zero at <i>all</i> gates ⇔ <b>Z(x) divides it</b> — the quotient H(x) = (A·B − C)/Z exists with no remainder</li>
+        <li>prover’s job: compute and commit to H(x). <b>One divisibility = the whole execution.</b></li>
       </ul>
     </div>
   </div>
@@ -476,7 +546,7 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
       <div class="panel" style="text-align:center;padding:24px">
         <div class="mtxname" style="color:var(--muted)">THE CEREMONY PUBLISHES · “POWERS OF TAU”</div>
         <p class="formula big" style="margin:6px 0 0">[τ⁰]₁, [τ¹]₁, [τ²]₁, …, [τᵈ]₁ &nbsp;&nbsp;(and [τⁱ]₂)</p>
-        <p class="cap">each hidden by the discrete log — τ itself stays unknown</p>
+        <p class="cap">reminder: these are just curve points — <span class="mono" style="color:var(--chalk)">[τ]₁ = τ·G₁, [τ²]₁ = τ²·G₁, …</span><br>each hidden by the discrete log — τ itself stays unknown</p>
       </div>
       <div class="panel" style="text-align:center;padding:24px;border-color:var(--g1)">
         <div class="mtxname tagG1">WHY THIS IS ENOUGH — TOOLBOX SLIDE 7</div>
@@ -526,8 +596,64 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
     </div>
     <div class="col grow" style="justify-content:center;gap:16px">
       <div class="klbox"><span class="kl tagG1">α, β</span><div class="job"><b>job:</b> knowledge soundness — “your three points really encode one witness, run through the real circuit polynomials.”</div></div>
-      <div class="klbox" style="opacity:.45"><span class="kl">γ, δ</span><div class="job">next slide</div></div>
+      <div class="klbox" style="opacity:.45"><span class="kl">γ, δ</span><div class="job">coming up — right after we write this fix out in full</div></div>
       <div class="klbox" style="opacity:.45"><span class="kl">τ</span><div class="job">the secret evaluation point — already met</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 21b · ALPHA BETA FULL EQUATION ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Greek letters — α, β in full</p>
+  <h2>Where α·β lands: the right-hand side</h2>
+  <div class="body" style="margin-top:14px">
+    <div class="col grow" style="justify-content:center;gap:14px">
+      <div class="panel" style="padding:20px 26px">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">1 · PROVER SENDS SHIFTED POINTS</div>
+        <p class="formula" style="font-size:24px;margin:4px 0 0;text-align:left">A = [<span class="tagG2">α</span> + A(τ)]₁ &nbsp;&nbsp;&nbsp; B = [<span class="tagG2">β</span> + B(τ)]₂</p>
+      </div>
+      <div class="panel" style="padding:20px 26px">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">2 · THE PAIRING MULTIPLIES THE EXPONENTS</div>
+        <p class="formula" style="font-size:23px;margin:4px 0 0;text-align:left">(α + A(τ))(β + B(τ)) = <b class="tagG2">α·β</b> + βA(τ) + αB(τ) + <span style="color:var(--faint)">A(τ)B(τ)</span></p>
+        <p class="formula" style="font-size:23px;margin:6px 0 0;text-align:left"><span style="color:var(--faint)">substitute A·B = C + H·Z:</span> &nbsp;= <b class="tagG2">α·β</b> + <span class="tagG1">βA(τ) + αB(τ) + C(τ) + H(τ)Z(τ)</span></p>
+      </div>
+      <div class="panel" style="padding:20px 26px;border-color:var(--g1)">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">3 · SO THE CHECK BECOMES</div>
+        <p class="formula" style="font-size:25px;margin:4px 0 0;text-align:left">e(A, B) = e([<span class="tagG2">α</span>]₁, [<span class="tagG2">β</span>]₂) · e(<span class="tagG1">C</span>, [1]₂)</p>
+        <p class="cap" style="text-align:left;margin-top:6px"><b class="tagG2">α·β</b> now sits on the <b>right-hand side</b> as a fixed setup constant — an equation you can only balance by carrying α, β through honest A, B, C, never by inventing points</p>
+      </div>
+    </div>
+    <div class="col" style="width:390px;justify-content:center;gap:16px">
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">NEW WORK FOR THE TRUSTED SETUP</div>
+        <p class="formula" style="font-size:21px;margin:6px 0;text-align:left">[Ψᵢ]₁ = [βAᵢ(τ) + αBᵢ(τ) + Cᵢ(τ)]₁</p>
+        <p class="cap" style="text-align:left;margin:0">one point per witness slot i — the prover can’t build the α, β cross-terms alone (doesn’t know them), so the ceremony precomputes them</p>
+      </div>
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">PROVER ASSEMBLES C</div>
+        <p class="formula" style="font-size:21px;margin:6px 0;text-align:left">C = Σ wᵢ·[Ψᵢ]₁ + [H(τ)Z(τ)]₁</p>
+        <p class="cap" style="text-align:left;margin:0">just a linear combination of published points — toolbox slide 7 again</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 21c · PUBLIC/PRIVATE SPLIT ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">One more ingredient before γ, δ</p>
+  <h2>Split Ψ: verifier gets public, prover gets private</h2>
+  <div class="body" style="margin-top:16px">
+    <div class="col grow" style="justify-content:center;gap:18px">
+      <div class="panel" style="padding:26px 30px;text-align:center">
+        <p class="formula big" style="margin:0">e(A, B) = e([α]₁, [β]₂) · e(<span class="tagG2">Σ<sub>i ≤ ℓ</sub> wᵢ[Ψᵢ]₁</span>, [1]₂) · e(<span class="tagG1">C</span>, [1]₂)</p>
+        <div style="display:flex;justify-content:center;gap:60px;margin-top:18px">
+          <div style="border-top:2px solid var(--g2);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g2)"><b>public slots (1, out)</b> — the VERIFIER computes this sum itself from the public inputs + verification key. This is how public inputs enter the check.</p></div>
+          <div style="border-top:2px solid var(--g1);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g1)"><b>private slots (x, v₁, v₂) + H·Z</b> — the PROVER folds these into C. The witness never leaves this point.</p></div>
+        </div>
+      </div>
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0"><b class="tagBAD">Problem:</b> public and private [Ψᵢ]₁ are structurally identical curve points. Nothing yet stops a prover from <b style="color:var(--chalk)">folding a public Ψᵢ into C</b> — and claiming a different public input than the one actually used. That’s the hole γ and δ close. →</p>
+      </div>
     </div>
   </div>
 </section>
@@ -553,6 +679,31 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
         <div class="klbox" style="flex:1"><span class="kl tagG2">γ</span><div class="job"><b>job:</b> seals the public-input lane (verifier’s side)</div></div>
         <div class="klbox" style="flex:1"><span class="kl tagG1">δ</span><div class="job"><b>job:</b> seals the witness + H·Z lane (prover’s side)</div></div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 22b · SALT R S ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">The last ingredient — the “zk” in zk-SNARK</p>
+  <h2>Salt r, s: same witness, fresh proof every time</h2>
+  <div class="body" style="margin-top:14px">
+    <div class="col" style="width:440px;justify-content:center;gap:16px">
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <div class="mtxname" style="text-align:left;color:var(--bad)">WITHOUT SALT — DETERMINISTIC PROOFS</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">Same witness → <b style="color:var(--chalk)">byte-identical proof</b>. Anyone who can <i>guess</i> your witness (small search space: an address, a small amount, a 4-digit PIN) just runs the prover and compares bytes. Guess confirmed — zero knowledge broken.</p>
+      </div>
+      <div class="panel" style="border-left:4px solid var(--ok)">
+        <div class="mtxname" style="text-align:left;color:var(--ok)">WITH SALT</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">The prover samples fresh random <b style="color:var(--chalk)">r, s</b> for every proof — (A, B, C) become <b style="color:var(--chalk)">uniformly random points</b> that still satisfy the equation. Two proofs of the same witness look completely unrelated.</p>
+      </div>
+    </div>
+    <div class="col grow" style="justify-content:center;gap:16px">
+      <div class="panel" style="padding:24px 28px">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">THE SALTED PROOF</div>
+        <p class="formula" style="font-size:24px;text-align:left;margin:8px 0 0;line-height:1.9">A = [α + A(τ) + <b class="tagGT">r·δ</b>]₁<br>B = [β + B(τ) + <b class="tagGT">s·δ</b>]₂<br>C = [ ⟨private Ψ⟩∕δ + H·Z∕δ + <b class="tagGT">s·A + r·B − r·s·δ</b> ]₁</p>
+      </div>
+      <p class="cap" style="text-align:left">the <b class="tagGT">rose terms</b> in C are built to exactly cancel the r·δ and s·δ cross-terms when the pairing expands e(A, B) — the equation still balances, for <i>any</i> r, s<br>· δ-scaling keeps the salt inside the prover’s lane from the last slide</p>
     </div>
   </div>
 </section>
@@ -602,9 +753,8 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
 <!-- ============ 26 · FURTHER READING ============ -->
 <section class="slide" data-sec="Wrap-up">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:30px">
-    <h1 style="font-size:72px">Questions?</h1>
+    <h1 style="font-size:60px">Go deeper</h1>
     <div class="panel" style="width:640px;text-align:left">
-      <div class="mtxname" style="text-align:left;color:var(--muted)">GO DEEPER</div>
       <ul class="pts" style="gap:12px;margin-top:8px">
         <li><b>RareSkills ZK Book</b> — modules 1–2 (this talk’s backbone) · rareskills.io/zk-book</li>
         <li><b>Vitalik</b> — “QAPs: from zero to hero”</li>
@@ -747,7 +897,6 @@ txt(v,410,320,'5',C.chalk,18,'middle',{'font-style':'italic'});S('circle',{cx:41
 wire(532,280,590,280,'');
 txt(v,596,268,'out',C.g2,19,'middle',{'font-style':'italic','font-weight':600});txt(v,596,292,'= 35',C.mut,15);
 txt(v,220,60,'gate 1',C.faint,13);txt(v,380,120,'gate 2',C.faint,13);txt(v,500,210,'gate 3 (linear)',C.faint,13);
-txt(v,310,395,'x³ + x + 5  →  v₁ = x·x   v₂ = v₁·x   out = v₂ + x + 5',C.mut,16.5,'middle',{'font-family':'Menlo, monospace'});
 })();
 
 /* ---------- matrices ---------- */
@@ -755,6 +904,9 @@ txt(v,310,395,'x³ + x + 5  →  v₁ = x·x   v₂ = v₁·x   out = v₂ + x +
 const A=[[0,0,1,0,0],[0,0,0,1,0],[5,0,1,0,1]],B=[[0,0,1,0,0],[0,0,1,0,0],[1,0,0,0,0]],Cm=[[0,0,0,1,0],[0,0,0,0,1],[0,1,0,0,0]];
 function fill(id,M){const t=document.getElementById(id);if(!t)return;t.innerHTML=M.map((r,i)=>'<tr'+(i===0?' class="hl"':'')+'>'+r.map(c=>'<td'+(c?' class="nz"':'')+'>'+c+'</td>').join('')+'</tr>').join('');}
 fill('mA',A);fill('mB',B);fill('mC',Cm);
+const wv=['1','out','x','v₁','v₂'];
+['vA','vB','vC'].forEach(id=>{const t=document.getElementById(id);if(!t)return;
+ t.innerHTML=wv.map((s,i)=>'<tr><td style="width:52px;font-style:italic;color:var(--'+(i<2?'g2':'g1')+')">'+s+'</td></tr>').join('');});
 })();
 
 /* ---------- schwartz-zippel ---------- */
@@ -823,6 +975,23 @@ S('rect',{x:660,y:85,width:240,height:150,rx:12,fill:'none',stroke:C.line,'strok
 ['A(x) carries every left input','B(x) every right input','C(x) every output'].forEach((s,i)=>{
  S('rect',{x:110+i*260,y:305,width:240,height:44,rx:22,fill:C.panel,stroke:C.line},v);
  txt(v,230+i*260,332,s,[C.g1,C.g2,C.gt][i],14.5);});
+})();
+
+/* ---------- degree imbalance: A·B vs C ---------- */
+(function(){const v=document.getElementById('fig-deg');if(!v)return;
+const A=x=>10*x*x-24*x+17, B=x=>-x*x+3*x+1, Cc=x=>-5*x*x+33*x-19;
+const W=640,H=390,X0=0.72,X1=3.1,Y0=-3,Y1=48;
+const mx=x=>(x-X0)/(X1-X0)*(W-60)+42, my=y=>H-40-((y-Y0)/(Y1-Y0)*(H-64));
+S('line',{x1:42,y1:my(0),x2:W-18,y2:my(0),stroke:C.line,'stroke-width':1.5},v);
+const pab=[],pc=[];
+for(let x=X0;x<=X1;x+=0.008){const ab=A(x)*B(x);if(ab>Y0-3&&ab<Y1+3)pab.push([mx(x),my(ab)]);pc.push([mx(x),my(Cc(x))]);}
+poly(v,pc,C.g2,3);poly(v,pab,C.g1,3.5);
+[[1,9],[2,27],[3,35]].forEach(([r,y])=>{S('circle',{cx:mx(r),cy:my(y),r:7.5,fill:C.chalk,stroke:'#0A0E1C','stroke-width':2.5},v);
+ S('line',{x1:mx(r),y1:my(y),x2:mx(r),y2:my(0),stroke:C.faint,'stroke-width':1.2,'stroke-dasharray':'3 5'},v);
+ txt(v,mx(r),my(0)+24,'gate '+r,C.mut,14,'middle',{'font-weight':600});});
+txt(v,mx(1.28),my(2.5),'A(x)·B(x) — degree 4',C.g1,16,'middle',{'font-style':'italic','font-weight':600});
+txt(v,mx(2.35),my(38),'C(x) — degree 2',C.g2,16,'middle',{'font-style':'italic','font-weight':600});
+txt(v,mx(2.1),my(23.5)-22,'equal values at every gate ●',C.faint,13.5,'start');
 })();
 
 /* ---------- qap vanishing plot ---------- */
@@ -950,7 +1119,6 @@ function show(i){cur=(i+slides.length)%slides.length;slides.forEach((s,j)=>s.cla
 addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(cur+1);}
  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(cur-1);}
  if(e.key==='Home')show(0); if(e.key==='End')show(slides.length-1);});
-addEventListener('click',e=>{if(e.target.closest('a'))return;show(cur+(e.clientX>innerWidth/2?1:-1));});
 function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);document.getElementById('stage').style.transform='scale('+s+')';}
 addEventListener('resize',fit);fit();show(cur);
 </script>
