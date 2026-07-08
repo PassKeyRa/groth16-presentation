@@ -644,11 +644,20 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
   <h2>Split Ψ: verifier gets public, prover gets private</h2>
   <div class="body" style="margin-top:16px">
     <div class="col grow" style="justify-content:center;gap:18px">
-      <div class="panel" style="padding:26px 30px;text-align:center">
-        <p class="formula big" style="margin:0">A·B = [α]₁·[β]₂ + <span class="tagG2">(Σ<sub>i ≤ ℓ</sub> wᵢ[Ψᵢ]₁)</span>·[1]₂ + <span class="tagG1">C</span>·[1]₂</p>
-        <div style="display:flex;justify-content:center;gap:60px;margin-top:18px">
-          <div style="border-top:2px solid var(--g2);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g2)"><b>public slots (1, out)</b> — the VERIFIER computes this sum itself from the public inputs + verification key. This is how public inputs enter the check.</p></div>
-          <div style="border-top:2px solid var(--g1);padding-top:10px;max-width:290px"><p class="cap" style="margin:0;color:var(--g1)"><b>private slots (x, v₁, v₂) + H·Z</b> — the PROVER folds these into C. The witness never leaves this point.</p></div>
+      <div class="panel" style="padding:26px 30px">
+        <div style="display:flex;justify-content:center;align-items:flex-start">
+          <p class="formula big" style="margin:0;white-space:nowrap">A·B&thinsp;=&thinsp;[α]₁·[β]₂&thinsp;+&thinsp;</p>
+          <div style="display:flex;flex-direction:column;align-items:center;width:330px">
+            <p class="formula big" style="margin:0;white-space:nowrap"><span class="tagG2">(Σ<sub>i ≤ ℓ</sub> wᵢ[Ψᵢ]₁)</span>·[1]₂</p>
+            <div style="width:82%;height:0;border-top:2px solid var(--g2);margin:12px 0 10px"></div>
+            <p class="cap" style="margin:0;color:var(--g2);max-width:300px"><b>public slots (1, out)</b> — the VERIFIER computes this sum itself from the public inputs + verification key. This is how public inputs enter the check.</p>
+          </div>
+          <p class="formula big" style="margin:0">&thinsp;+&thinsp;</p>
+          <div style="display:flex;flex-direction:column;align-items:center;width:260px">
+            <p class="formula big" style="margin:0;white-space:nowrap"><span class="tagG1">C</span>·[1]₂</p>
+            <div style="width:76%;height:0;border-top:2px solid var(--g1);margin:12px 0 10px"></div>
+            <p class="cap" style="margin:0;color:var(--g1);max-width:250px"><b>private slots (x, v₁, v₂) + H·Z</b> — the PROVER folds these into C. The witness never leaves this point.</p>
+          </div>
         </div>
       </div>
       <div class="panel" style="border-left:4px solid var(--bad)">
@@ -1056,17 +1065,17 @@ txt(v,450,230,'final secret τ = τ₁ · τ₂ · τ₃ ⋯ τₙ — unknown u
 /* ---------- lanes gamma delta ---------- */
 (function(){const v=document.getElementById('fig-lanes');if(!v)return;
 function lane(y,c,tag,items,side){
- S('rect',{x:10,y,width:600,height:110,rx:12,fill:C.panel,stroke:c,'stroke-width':1.8},v);
- txt(v,30,y+30,tag,c,16,'start',{'font-weight':700,'letter-spacing':'.08em'});
- items.forEach((s,i)=>{S('rect',{x:30+i*186,y:y+46,width:170,height:40,rx:20,fill:'#0E1426',stroke:C.line},v);txt(v,115+i*186,y+71,s,C.chalk,13.5);});
- txt(v,586,y+30,side,C.faint,12.5,'end');
+ S('rect',{x:10,y,width:600,height:100,rx:12,fill:C.panel,stroke:c,'stroke-width':1.8},v);
+ txt(v,30,y+28,tag,c,16,'start',{'font-weight':700,'letter-spacing':'.08em'});
+ items.forEach((s,i)=>{S('rect',{x:30+i*186,y:y+42,width:170,height:38,rx:19,fill:'#0E1426',stroke:C.line},v);txt(v,115+i*186,y+66,s,C.chalk,13.5);});
+ txt(v,540,y+28,side,C.faint,12.5,'end');
  /* lock */
- const lx=560,ly=y+18;S('rect',{x:lx-9,y:ly-6,width:18,height:14,rx:3,fill:c},v);S('path',{d:`M${lx-5},${ly-6} v-5 a5,5 0 0 1 10,0 v5`,fill:'none',stroke:c,'stroke-width':2.5},v);
+ const lx=580,ly=y+24;S('rect',{x:lx-9,y:ly-6,width:18,height:14,rx:3,fill:c},v);S('path',{d:`M${lx-5},${ly-6} v-5 a5,5 0 0 1 10,0 v5`,fill:'none',stroke:c,'stroke-width':2.5},v);
 }
-lane(20,C.g2,'PUBLIC LANE — ÷ γ',['public inputs aᵢ','their Aᵢ,Bᵢ,Cᵢ terms'],'verifier computes');
-lane(160,C.g1,'PRIVATE LANE — ÷ δ',['witness terms → C','quotient H(τ)·Z(τ)'],'prover computes');
-S('line',{x1:10,y1:145,x2:610,y2:145,stroke:C.bad,'stroke-width':2,'stroke-dasharray':'8 6'},v);
-txt(v,310,150,'✂ terms cannot cross — wrong lane keeps a stray 1/γ or 1/δ',C.bad,13,'middle',{'baseline-shift':'-28px'});
+lane(12,C.g2,'PUBLIC LANE — ÷ γ',['public inputs aᵢ','their Aᵢ,Bᵢ,Cᵢ terms'],'verifier computes');
+lane(170,C.g1,'PRIVATE LANE — ÷ δ',['witness terms → C','quotient H(τ)·Z(τ)'],'prover computes');
+S('line',{x1:10,y1:136,x2:610,y2:136,stroke:C.bad,'stroke-width':2,'stroke-dasharray':'8 6'},v);
+txt(v,310,158,'✂ terms cannot cross — a term in the wrong lane keeps a stray 1/γ or 1/δ',C.bad,13,'middle');
 })();
 
 /* ---------- verification equation ---------- */
