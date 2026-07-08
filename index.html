@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groth16: How a SNARK Actually Works</title>
+<style>
+:root{
+  --bg:#0A0E1C; --panel:#111830; --panel2:#0E1426; --line:#242E4D;
+  --chalk:#E9E7DE; --muted:#8B93A8; --faint:#5A6379;
+  --g1:#4FD8C4; --g2:#E8B44F; --gt:#E7709B;
+  --ok:#7BC96F; --bad:#E0644F;
+  --disp:"Palatino","Palatino Linotype","Book Antiqua",Georgia,serif;
+  --ui:"Avenir Next","Avenir","Segoe UI",system-ui,sans-serif;
+  --mono:"SF Mono",Menlo,Consolas,monospace;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--chalk);overflow:hidden;height:100%}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;position:relative;flex:none}
+.slide{position:absolute;inset:0;padding:54px 72px 64px;box-sizing:border-box;display:none;flex-direction:column}
+.slide.on{display:flex}
+@media (prefers-reduced-motion:no-preference){
+  .slide.on{animation:in .35s ease}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+.eyebrow{font:600 13px/1 var(--ui);letter-spacing:.22em;text-transform:uppercase;color:var(--g1);margin:0 0 14px}
+h1{font:400 76px/1.05 var(--disp);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font:400 40px/1.15 var(--disp);margin:0 0 8px;text-wrap:balance;letter-spacing:-.01em}
+.sub{font:400 20px/1.5 var(--ui);color:var(--muted);margin:10px 0 0;max-width:62ch}
+.body{flex:1;display:flex;gap:44px;align-items:stretch;min-height:0;margin-top:26px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.grow{flex:1}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 24px}
+.math{font-family:var(--disp);font-style:italic}
+.formula{font:400 27px/1.5 var(--disp);text-align:center}
+.formula.big{font-size:34px}
+.formula sup,.formula sub{font-size:.6em}
+kbd,.mono{font-family:var(--mono)}
+ul.pts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+ul.pts li{font:400 20px/1.45 var(--ui);padding-left:26px;position:relative}
+ul.pts li::before{content:"";position:absolute;left:2px;top:11px;width:9px;height:9px;border-radius:50%;background:var(--g1)}
+ul.pts li b{font-weight:600}
+.cap{font:500 14px/1.5 var(--ui);color:var(--muted);text-align:center;margin-top:8px}
+.tagG1{color:var(--g1)} .tagG2{color:var(--g2)} .tagGT{color:var(--gt)}
+.tagOK{color:var(--ok)} .tagBAD{color:var(--bad)}
+.chip{display:inline-block;font:600 14px/1 var(--ui);letter-spacing:.06em;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--chalk);white-space:nowrap}
+.chip.hot{border-color:var(--g1);color:var(--g1)}
+svg{display:block}
+svg text{font-family:var(--ui)}
+table.pttab{border-collapse:collapse;font:400 16.5px/1.35 var(--mono);font-variant-numeric:tabular-nums}
+table.pttab td,table.pttab th{border:1px solid var(--line);padding:5px 12px;text-align:center}
+table.pttab th{font-family:var(--ui);font-weight:600;font-size:13px;letter-spacing:.08em;color:var(--muted)}
+table.mtx{border-collapse:collapse;font:400 19px/1.2 var(--mono);font-variant-numeric:tabular-nums}
+table.mtx td{width:40px;height:38px;text-align:center;border:1px solid var(--line);color:var(--faint)}
+table.mtx td.nz{color:var(--chalk);background:#1A2340}
+table.mtx tr.hl td{background:#232F58;color:var(--chalk)}
+table.mtx tr.hl td.nz{background:#2E3C6E}
+.mtxname{font:600 15px/1 var(--ui);letter-spacing:.12em;text-align:center;margin-bottom:8px}
+.hud{position:absolute;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 72px;box-sizing:border-box;font:500 13px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+#bar{position:absolute;bottom:0;left:0;height:3px;background:var(--g1);transition:width .25s ease}
+.witcol{display:flex;flex-direction:column;gap:6px;font:400 20px/1 var(--mono);font-variant-numeric:tabular-nums}
+.witcol .w{display:flex;align-items:center;gap:14px}
+.witcol .cell{width:74px;height:48px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--panel)}
+.witcol .lab{font:500 15px/1.3 var(--ui);color:var(--muted);width:180px}
+.witcol .pub .cell{border-color:var(--g2);color:var(--g2)}
+.witcol .prv .cell{border-color:var(--g1);color:var(--g1)}
+.bigstat{font:400 44px/1.1 var(--disp)}
+.lane{border-radius:12px;padding:20px 24px;flex:1}
+.arrowflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.arrowflow .ar{color:var(--faint);font:400 20px/1 var(--ui)}
+.checkcard{display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px}
+.checkcard .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--bad);color:#0A0E1C;font:700 15px/30px var(--ui);text-align:center}
+.checkcard h3{font:600 18px/1.3 var(--ui);margin:0 0 4px}
+.checkcard p{font:400 15.5px/1.45 var(--ui);color:var(--muted);margin:0}
+.klbox{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:16px 20px}
+.klbox .kl{font:400 30px/1 var(--disp);font-style:italic}
+.klbox .job{font:400 16px/1.45 var(--ui);color:var(--muted);margin-top:8px}
+.hint{position:absolute;right:72px;bottom:64px;font:500 14px/1 var(--ui);color:var(--faint)}
+.hint kbd{border:1px solid var(--line);border-radius:5px;padding:3px 7px;font-size:12px}
+</style>
+
+<div id="viewport"><div id="stage">
+
+<!-- ============ 1 · TITLE ============ -->
+<section class="slide" data-sec="Groth16">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+    <p class="eyebrow">zk-snarks · for web3 security auditors</p>
+    <h1 style="font-size:104px">Groth16</h1>
+    <p class="sub" style="font-size:26px;margin-top:18px">How a SNARK actually works</p>
+    <svg id="fig-title" width="560" height="120" viewBox="0 0 560 120" style="margin-top:34px"></svg>
+    <p class="sub" style="font-size:19px;margin-top:10px">Prove you know a secret — without revealing it — in <b style="color:var(--chalk)">three elliptic-curve points</b>.</p>
+  </div>
+  <p class="hint">navigate with <kbd>←</kbd> <kbd>→</kbd></p>
+</section>
+
+<!-- ============ 2 · WHY CARE ============ -->
+<section class="slide" data-sec="Motivation">
+  <p class="eyebrow">Why should an auditor care?</p>
+  <h2>A constant-size proof of any computation</h2>
+  <div class="body">
+    <div class="col grow">
+      <svg id="fig-flow" width="620" height="190" viewBox="0 0 620 190"></svg>
+      <div class="panel" style="display:flex;gap:38px;justify-content:space-around;text-align:center">
+        <div><div class="bigstat tagG1">≈ 128 B</div><div class="cap">proof size — always</div></div>
+        <div><div class="bigstat tagG2">≈ 200k gas</div><div class="cap">on-chain verification</div></div>
+        <div><div class="bigstat tagGT">0 bits</div><div class="cap">leaked about the witness</div></div>
+      </div>
+    </div>
+    <div class="col" style="width:420px">
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">IN THE WILD</div>
+        <ul class="pts" style="gap:10px">
+          <li>Tornado Cash — private transfers</li>
+          <li>Semaphore — anonymous signalling</li>
+          <li>zkEmail, zkLogin — proofs over signatures</li>
+          <li>Circom/snarkjs stacks you will audit</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">TODAY'S ROUTE · 40 MIN</div>
+        <div class="arrowflow" style="margin-top:6px">
+          <span class="chip hot">Math toolbox</span><span class="ar">→</span>
+          <span class="chip">R1CS</span><span class="ar">→</span>
+          <span class="chip">QAP</span><span class="ar">→</span>
+          <span class="chip">Trusted setup</span><span class="ar">→</span>
+          <span class="chip">The proof</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · FINITE FIELDS ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 1 / 4 — finite fields</p>
+  <h2>All arithmetic happens on a clock</h2>
+  <div class="body">
+    <div class="col" style="width:460px;align-items:center;justify-content:center">
+      <svg id="fig-clock" width="400" height="400" viewBox="0 0 400 400"></svg>
+      <p class="cap">𝔽<sub>17</sub> — integers mod a prime · <span class="tagG2">12 + 8 ≡ 3</span></p>
+    </div>
+    <div class="col grow" style="justify-content:center">
+      <ul class="pts" style="gap:22px">
+        <li><b>Work modulo a prime p.</b> Numbers wrap around; there is no “bigger than”.</li>
+        <li><b>Every non-zero element has an inverse</b> — so division always works: 5<sup>−1</sup> mod 17 = 7, because 5 · 7 = 35 ≡ 1.</li>
+        <li><b>Why we care:</b> every wire, every constraint, every polynomial in a SNARK lives in 𝔽<sub>p</sub>. No floats, no rounding, exact algebra.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · EC OVER R ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 2 / 4 — elliptic curves</p>
+  <h2>Point addition is a geometric rule</h2>
+  <div class="body">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-real" width="620" height="440" viewBox="0 0 620 440"></svg>
+    </div>
+    <div class="col" style="width:400px;justify-content:center">
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">CHORD RULE: P + Q</div>
+        <ul class="pts" style="gap:10px;font-size:18px">
+          <li>draw the line through <b class="tagG1">P</b> and <b class="tagG2">Q</b></li>
+          <li>it hits the curve at a <b>third point</b></li>
+          <li>reflect over the x-axis → <b class="tagGT">P + Q</b></li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">DOUBLING: 2P</div>
+        <p style="font:400 18px/1.5 var(--ui);margin:0;color:var(--muted)">Same rule with the <b style="color:var(--chalk)">tangent line</b> at P.</p>
+      </div>
+      <p class="cap" style="text-align:left">This rule is associative and has an identity 𝒪 — the points form a <b>group</b>. That’s the only fact we need.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · EC OVER F17 ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 2 / 4 — elliptic curves, for real</p>
+  <h2>Over 𝔽<sub>17</sub> the “curve” is a cloud of points</h2>
+  <div class="body" style="margin-top:14px">
+    <div class="col" style="width:440px;align-items:center">
+      <svg id="fig-cloud" width="420" height="400" viewBox="0 0 420 400"></svg>
+      <p class="cap math">y² = x³ + 3 (mod 17) — same algebra, same addition formulas</p>
+    </div>
+    <div class="col grow">
+      <table class="pttab" id="pttab"></table>
+      <div style="display:flex;gap:14px">
+        <div class="panel" style="flex:1;padding:14px 18px"><b class="tagG2" style="font:600 17px var(--ui)">field order p = 17</b><div class="cap" style="text-align:left;margin-top:4px">where the <i>coordinates</i> live</div></div>
+        <div class="panel" style="flex:1;padding:14px 18px"><b class="tagG1" style="font:600 17px var(--ui)">curve order n = 18</b><div class="cap" style="text-align:left;margin-top:4px">how many points exist — a <i>different</i> number! (17 affine + 𝒪)</div></div>
+      </div>
+      <p class="cap" style="text-align:left;margin-top:2px">Example from the table: <span class="mono">(1, 15) + (4, 4) = (16, 6)</span> — computed with the same chord formula, mod 17.<br>On BN254 both numbers are ≈ 2<sup>254</sup>: coordinates mod <i>p</i>, but circuit arithmetic mod the curve order <i>r</i>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 · SCALAR MULT / DLP ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 3 / 4 — the one-way function</p>
+  <h2>Scalar multiplication hides a number</h2>
+  <div class="body" style="margin-top:14px">
+    <div class="col" style="width:460px;align-items:center">
+      <svg id="fig-hops" width="420" height="400" viewBox="0 0 420 400"></svg>
+      <p class="cap">G → 2G → 3G → … hops look random · after 18 hops: back to 𝒪</p>
+    </div>
+    <div class="col grow" style="justify-content:center;gap:22px">
+      <div class="panel" style="display:flex;justify-content:space-around;text-align:center;padding:24px">
+        <div><div class="formula tagOK">k → kG</div><div class="cap">easy · double-and-add,<br>~log₂ k curve ops</div></div>
+        <div style="width:1px;background:var(--line)"></div>
+        <div><div class="formula tagBAD">kG → k</div><div class="cap">infeasible · the<br><b>Discrete Log Problem</b></div></div>
+      </div>
+      <div class="panel">
+        <p class="formula" style="margin:0">[k]₁ ≔ k·G₁ &nbsp;&nbsp; [k]₂ ≔ k·G₂</p>
+        <p class="cap">our notation: <b>[k] is an “encryption” of k</b> you can publish freely.<br>Everything Groth16 publishes — keys and proofs — is points of this form.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 · CAPABILITY CARD ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 3 / 4 — what hidden values allow</p>
+  <h2>Hidden values: add yes, multiply no</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="gap:18px">
+      <div class="panel" style="display:flex;align-items:center;gap:26px;border-left:4px solid var(--ok)">
+        <span style="font:400 30px var(--disp)" class="tagOK">✓</span>
+        <span class="formula" style="text-align:left">[a] + [b] = [a + b]</span>
+        <span class="cap" style="margin:0;text-align:left;flex:1">add two hidden values — point addition</span>
+      </div>
+      <div class="panel" style="display:flex;align-items:center;gap:26px;border-left:4px solid var(--ok)">
+        <span style="font:400 30px var(--disp)" class="tagOK">✓</span>
+        <span class="formula" style="text-align:left">c · [a] = [c·a]</span>
+        <span class="cap" style="margin:0;text-align:left;flex:1">scale by a <b>public</b> constant — so any public linear combination works: Σ cᵢ[aᵢ] = [Σ cᵢaᵢ]</span>
+      </div>
+      <div class="panel" style="display:flex;align-items:center;gap:26px;border-left:4px solid var(--bad)">
+        <span style="font:400 30px var(--disp)" class="tagBAD">✗</span>
+        <span class="formula" style="text-align:left">[a] · [b] = ?</span>
+        <span class="cap" style="margin:0;text-align:left;flex:1">multiply two hidden values — <b>impossible</b> with curve operations alone</span>
+      </div>
+      <p class="sub" style="align-self:center;font-size:22px;margin-top:16px">A circuit is full of multiplications… we need at least <b style="color:var(--chalk)">one multiplication check</b>. Enter pairings.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 · PAIRINGS ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox 4 / 4 — bilinear pairings</p>
+  <h2>A pairing checks one multiplication</h2>
+  <div class="body">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-pair" width="660" height="330" viewBox="0 0 660 330"></svg>
+      <p class="cap">the only property we use — <b>bilinearity</b>: scalars escape into the exponent and multiply</p>
+    </div>
+    <div class="col" style="width:400px;justify-content:center;gap:18px">
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">THE MULTIPLICATION CHECKER</div>
+        <p class="formula" style="font-size:23px;margin:8px 0 0">e([a]₁, [b]₂) = e([c]₁, [1]₂)</p>
+        <p class="cap" style="text-align:left">holds &nbsp;⇔&nbsp; a·b = c — verified without ever learning a, b, or c.</p>
+      </div>
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">ON ETHEREUM · BN254</div>
+        <p style="font:400 16px/1.6 var(--ui);color:var(--muted);margin:0">precompiles <span class="mono" style="color:var(--chalk)">0x06</span> ecAdd · <span class="mono" style="color:var(--chalk)">0x07</span> ecMul · <span class="mono" style="color:var(--chalk)">0x08</span> ecPairing</p>
+      </div>
+      <p class="cap" style="text-align:left">Internals (Miller loops, tower fields) — out of scope. Treat <span class="math">e</span> as a trusted gadget.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9 · TOOLBOX RECAP ============ -->
+<section class="slide" data-sec="1 · Math toolbox">
+  <p class="eyebrow">Toolbox — complete</p>
+  <h2>That’s all the cryptography we need</h2>
+  <div class="body" style="align-items:center">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1">
+      <div class="panel" style="padding:26px"><div class="bigstat" style="font-size:30px">𝔽<sub>p</sub></div><p class="cap" style="text-align:left;font-size:16px">a finite field — exact arithmetic where division works</p></div>
+      <div class="panel" style="padding:26px"><div class="bigstat" style="font-size:30px">[x] = xG</div><p class="cap" style="text-align:left;font-size:16px">DLP hiding — publish a value without revealing it</p></div>
+      <div class="panel" style="padding:26px"><div class="bigstat" style="font-size:30px">Σ cᵢ[aᵢ]</div><p class="cap" style="text-align:left;font-size:16px">additive homomorphism — public linear algebra on hidden values</p></div>
+      <div class="panel" style="padding:26px"><div class="bigstat" style="font-size:30px"><span class="tagG1">e(</span>·<span class="tagG2">,</span>·<span class="tagGT">)</span></div><p class="cap" style="text-align:left;font-size:16px">pairing — exactly one multiplication check on hidden values</p></div>
+    </div>
+    <div class="col" style="width:360px;justify-content:center">
+      <p class="sub" style="font-size:24px;line-height:1.5">Everything from here on is <b style="color:var(--chalk)">clever encoding</b>, not more crypto.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 · PROGRAM TO CIRCUIT ============ -->
+<section class="slide" data-sec="2 · R1CS">
+  <p class="eyebrow">Arithmetization — step 1</p>
+  <h2>From claim to circuit</h2>
+  <div class="body">
+    <div class="col" style="width:420px;justify-content:center;gap:20px">
+      <div class="panel" style="text-align:center;padding:26px">
+        <div class="cap" style="margin:0 0 10px">THE CLAIM</div>
+        <p class="formula big" style="margin:0">“I know x such that<br><span class="math">x³ + x + 5 = 35</span>”</p>
+        <p class="cap">(the secret: x = 3)</p>
+      </div>
+      <ul class="pts" style="gap:14px">
+        <li><b>Flatten</b> into gates of the form <span class="math">left ⊙ right = out</span></li>
+        <li>Each gate: <b>at most one multiplication</b></li>
+        <li>Additions and constants ride along inside a gate’s linear combinations — they’re free</li>
+      </ul>
+    </div>
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-circuit" width="620" height="420" viewBox="0 0 620 420"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 · WITNESS ============ -->
+<section class="slide" data-sec="2 · R1CS">
+  <p class="eyebrow">Arithmetization — step 2</p>
+  <h2>The witness: every wire, in one vector</h2>
+  <div class="body" style="align-items:center">
+    <div class="col" style="width:460px;align-items:center">
+      <div class="witcol">
+        <div class="w pub"><span class="cell">1</span><span class="lab">constant one — always slot 0</span></div>
+        <div class="w pub"><span class="cell">35</span><span class="lab">out — public</span></div>
+        <div class="w prv"><span class="cell">3</span><span class="lab">x — private</span></div>
+        <div class="w prv"><span class="cell">9</span><span class="lab">v₁ = x·x</span></div>
+        <div class="w prv"><span class="cell">27</span><span class="lab">v₂ = v₁·x</span></div>
+      </div>
+      <p class="cap"><span class="tagG2">■ public inputs</span> &nbsp;·&nbsp; <span class="tagG1">■ private witness</span></p>
+    </div>
+    <div class="col grow" style="justify-content:center;gap:20px">
+      <p class="formula big" style="text-align:left">w = (1, out, x, v₁, v₂)</p>
+      <ul class="pts" style="gap:18px">
+        <li>The <b>constant-1 slot</b> lets constants like “+5” be expressed as linear terms</li>
+        <li>One vector = the full execution trace of the program</li>
+        <li>The <b>public / private split</b> is a real boundary — Groth16’s γ and δ exist to police it. Remember this slide.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12 · R1CS DEFINITION ============ -->
+<section class="slide" data-sec="2 · R1CS">
+  <p class="eyebrow">Rank-1 Constraint System</p>
+  <h2>One matrix equation per gate</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="align-items:center;gap:26px">
+      <p class="formula big">(A·w) ∘ (B·w) = C·w</p>
+      <p class="cap" style="margin-top:-14px">∘ = row-by-row (Hadamard) product · each <b>row</b> is one gate: <span class="math">left · right = out</span></p>
+      <div style="display:flex;gap:34px;align-items:center">
+        <div><div class="mtxname tagG1">A · “left”</div><table class="mtx" id="mA"></table></div>
+        <span style="font:400 30px var(--disp)">∘</span>
+        <div><div class="mtxname tagG2">B · “right”</div><table class="mtx" id="mB"></table></div>
+        <span style="font:400 30px var(--disp)">=</span>
+        <div><div class="mtxname tagGT">C · “out”</div><table class="mtx" id="mC"></table></div>
+      </div>
+      <p class="cap">columns = witness slots <span class="mono">(1, out, x, v₁, v₂)</span> · rows = gates · highlighted row 1 reads: <b>“x · x = v₁”</b><br>matrices are mostly zeros — R1CS is sparse bookkeeping, nothing deep</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 13 · R1CS WORKED ============ -->
+<section class="slide" data-sec="2 · R1CS">
+  <p class="eyebrow">Rank-1 Constraint System — checked by hand</p>
+  <h2>The witness satisfies every row</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="gap:16px">
+      <div class="panel" style="font:400 21px/2 var(--mono);font-variant-numeric:tabular-nums;padding:26px 32px">
+        <div>gate 1: &nbsp;(A₁·w)(B₁·w) = <b class="tagG1">3</b> · <b class="tagG2">3</b> &nbsp;= <b class="tagGT">9</b> &nbsp;= C₁·w &nbsp;<span class="tagOK">✓</span> <span style="color:var(--faint)">// x·x = v₁</span></div>
+        <div>gate 2: &nbsp;(A₂·w)(B₂·w) = <b class="tagG1">9</b> · <b class="tagG2">3</b> &nbsp;= <b class="tagGT">27</b> = C₂·w &nbsp;<span class="tagOK">✓</span> <span style="color:var(--faint)">// v₁·x = v₂</span></div>
+        <div>gate 3: &nbsp;(A₃·w)(B₃·w) = <b class="tagG1">35</b> · <b class="tagG2">1</b> = <b class="tagGT">35</b> = C₃·w &nbsp;<span class="tagOK">✓</span> <span style="color:var(--faint)">// v₂+x+5 = out</span></div>
+      </div>
+      <p class="formula" style="font-size:24px">satisfying witness &nbsp;⇔&nbsp; correct computation</p>
+    </div>
+    <div class="col" style="width:380px;justify-content:center">
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <div class="mtxname" style="text-align:left;color:var(--bad)">THE PROBLEM</div>
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0">Checking all rows = <b style="color:var(--chalk)">re-running the whole program</b>. Real circuits have millions of rows. We need to compress <i>m</i> checks into <b style="color:var(--chalk)">one</b>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 14 · WHY POLYNOMIALS ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">The key trick</p>
+  <h2>Why polynomials? One point tells all</h2>
+  <div class="body">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-sz" width="640" height="400" viewBox="0 0 640 400"></svg>
+      <p class="cap">two <i>different</i> degree-d polynomials can agree on at most d points (here d = 3)</p>
+    </div>
+    <div class="col" style="width:400px;justify-content:center;gap:20px">
+      <div class="panel">
+        <div class="mtxname" style="text-align:left;color:var(--muted)">SCHWARTZ–ZIPPEL, INFORMALLY</div>
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0">Evaluate both at a <b style="color:var(--chalk)">random point τ</b> from a field of size ≈ 2²⁵⁴. If they differ anywhere, they differ at τ with overwhelming probability: <span class="mono">d / p ≈ 2⁻²³⁰</span>.</p>
+      </div>
+      <p class="formula" style="text-align:left;font-size:25px">millions of constraints<br>→ one polynomial identity<br>→ <b>one evaluation at τ</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 15 · LAGRANGE ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">The encoder</p>
+  <h2>Lagrange interpolation: vectors become polynomials</h2>
+  <div class="body">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-lagr" width="640" height="410" viewBox="0 0 640 410"></svg>
+      <p class="cap">vector <span class="mono">(4, 7, 1)</span> at x = 1, 2, 3 → the unique parabola through the three points</p>
+    </div>
+    <div class="col" style="width:400px;justify-content:center;gap:18px">
+      <ul class="pts" style="gap:18px">
+        <li>Each faint “bump” ℓᵢ(x) equals <b>1 at its point, 0 at the others</b></li>
+        <li>Scale each bump by its value and <b>add</b> — the sum passes through every point</li>
+        <li>n values &nbsp;⇔&nbsp; unique polynomial of degree &lt; n. <b>A lossless change of encoding.</b></li>
+      </ul>
+      <p class="cap" style="text-align:left">That’s all we need — closed formulas are a footnote.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 16 · R1CS → QAP ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">Quadratic Arithmetic Program</p>
+  <h2>Interpolate the matrices, column by column</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-qapmap" width="960" height="380" viewBox="0 0 960 380"></svg>
+    </div>
+  </div>
+  <p class="cap">each <b>column</b> of A (one witness slot) read down the gates → one polynomial Aᵢ(x) · same for B and C<br>then bundle with the witness: <span class="math" style="color:var(--chalk)">A(x) = Σ wᵢ·Aᵢ(x)</span> — matrices are gone, polynomials remain</p>
+</section>
+
+<!-- ============ 17 · QAP EQUATION ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">Quadratic Arithmetic Program</p>
+  <h2>All gates become one divisibility</h2>
+  <div class="body" style="margin-top:10px">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-qap" width="640" height="380" viewBox="0 0 640 380"></svg>
+      <p class="cap"><span class="math">A(x)·B(x) − C(x)</span> for our real example — it touches zero exactly at gates x = 1, 2, 3</p>
+    </div>
+    <div class="col" style="width:420px;justify-content:center;gap:18px">
+      <div class="panel" style="text-align:center;padding:24px">
+        <p class="formula big" style="margin:0">A(x)·B(x) − C(x) = H(x)·Z(x)</p>
+        <p class="cap">Z(x) = (x−1)(x−2)(x−3) — the <b>vanishing polynomial</b>, zero at every gate</p>
+      </div>
+      <ul class="pts" style="gap:14px">
+        <li>gate i satisfied ⇔ the difference is <b>zero at x = i</b></li>
+        <li>zero at <i>all</i> gates ⇔ <b>Z(x) divides it</b> — quotient H(x) exists</li>
+        <li>prover’s job: exhibit H(x). <b>One divisibility = the whole execution.</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 18 · ONE POINT / WHO PICKS TAU ============ -->
+<section class="slide" data-sec="3 · QAP">
+  <p class="eyebrow">Compression, complete — one problem left</p>
+  <h2>Check it at a single secret point</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="align-items:center">
+      <svg id="fig-funnel" width="700" height="330" viewBox="0 0 700 330"></svg>
+    </div>
+    <div class="col" style="width:400px;justify-content:center;gap:18px">
+      <p class="formula" style="text-align:left">A(τ)·B(τ) − C(τ) = H(τ)·Z(τ)</p>
+      <div class="panel" style="border-left:4px solid var(--g2)">
+        <p style="font:400 18px/1.6 var(--ui);color:var(--muted);margin:0">τ must be<br>① <b style="color:var(--chalk)">secret from the prover</b> — or they fit a fake polynomial through it<br>② <b style="color:var(--chalk)">fixed for everyone</b> — same check for all proofs</p>
+      </div>
+      <p class="sub" style="font-size:23px"><b style="color:var(--chalk)">Who picks τ?</b> → the Trusted Setup.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 19 · SETUP / POWERS OF TAU ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Trusted setup — the core idea</p>
+  <h2>Publish τ only in the exponent</h2>
+  <div class="body">
+    <div class="col grow" style="justify-content:center;gap:20px">
+      <div class="panel" style="text-align:center;padding:24px">
+        <div class="mtxname" style="color:var(--muted)">THE CEREMONY PUBLISHES · “POWERS OF TAU”</div>
+        <p class="formula big" style="margin:6px 0 0">[τ⁰]₁, [τ¹]₁, [τ²]₁, …, [τᵈ]₁ &nbsp;&nbsp;(and [τⁱ]₂)</p>
+        <p class="cap">each hidden by the discrete log — τ itself stays unknown</p>
+      </div>
+      <div class="panel" style="text-align:center;padding:24px;border-color:var(--g1)">
+        <div class="mtxname tagG1">WHY THIS IS ENOUGH — TOOLBOX SLIDE 7</div>
+        <p class="formula" style="margin:6px 0 0">P(τ) = Σ cᵢτⁱ &nbsp;⇒&nbsp; [P(τ)]₁ = Σ cᵢ·[τⁱ]₁</p>
+        <p class="cap">evaluating any polynomial <b>at the hidden point</b> is just a public linear combination — exactly what curve points allow</p>
+      </div>
+    </div>
+    <div class="col" style="width:380px;justify-content:center">
+      <svg id="fig-toxic" width="360" height="330" viewBox="0 0 360 330"></svg>
+      <p class="cap">whoever knows τ can forge any proof —<br>τ is <b class="tagBAD">toxic waste</b>, it must be destroyed</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 20 · MPC CEREMONY ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Trusted setup — de-risked</p>
+  <h2>A chain of contributors, one honest is enough</h2>
+  <div class="body">
+    <div class="col grow" style="align-items:center;justify-content:center">
+      <svg id="fig-mpc" width="900" height="260" viewBox="0 0 900 260"></svg>
+      <p class="cap">τ = τ₁ · τ₂ · τ₃ · … — recovering τ requires <b>every</b> participant to collude; one honest deletion kills it</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:16px">
+    <div class="panel" style="flex:1"><b style="font:600 17px var(--ui)" class="tagG1">Phase 1 — universal</b><p class="cap" style="text-align:left;margin-top:6px">powers of τ, reusable by any circuit up to size d · “Perpetual Powers of Tau”</p></div>
+    <div class="panel" style="flex:1"><b style="font:600 17px var(--ui)" class="tagG2">Phase 2 — circuit-specific</b><p class="cap" style="text-align:left;margin-top:6px">bakes in this circuit’s Aᵢ, Bᵢ, Cᵢ polynomials (and α β γ δ)</p></div>
+    <div class="panel" style="flex:1"><b style="font:600 17px var(--ui)">In the wild</b><p class="cap" style="text-align:left;margin-top:6px">Zcash 2016 · PPoT (thousands of contributors) · Tornado Cash ceremony 2020</p></div>
+  </div>
+</section>
+
+<!-- ============ 21 · ALPHA BETA ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Greek letters, one attack at a time</p>
+  <h2>α, β — force honest A, B, C</h2>
+  <div class="body">
+    <div class="col" style="width:470px;justify-content:center;gap:18px">
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <div class="mtxname" style="text-align:left;color:var(--bad)">ATTACK ON THE NAIVE SCHEME</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">Verifier only sees three opaque points and a pairing equation. Nothing forces them to come from real polynomials — a cheater can pick <b style="color:var(--chalk)">arbitrary points that balance the equation</b>, witness-free.</p>
+      </div>
+      <div class="panel" style="border-left:4px solid var(--ok)">
+        <div class="mtxname" style="text-align:left;color:var(--ok)">FIX — SECRET SHIFTS FROM THE SETUP</div>
+        <p class="formula" style="font-size:24px;margin:6px 0">A = [α + A(τ) + …]₁<br>B = [β + B(τ) + …]₂</p>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">The check now requires the cross-terms around α·β to cancel — only possible if A, B, C were <b style="color:var(--chalk)">built from the same witness</b>. Faking it needs α, β themselves; the world only has [α]₁, [β]₂.</p>
+      </div>
+    </div>
+    <div class="col grow" style="justify-content:center;gap:16px">
+      <div class="klbox"><span class="kl tagG1">α, β</span><div class="job"><b>job:</b> knowledge soundness — “your three points really encode one witness, run through the real circuit polynomials.”</div></div>
+      <div class="klbox" style="opacity:.45"><span class="kl">γ, δ</span><div class="job">next slide</div></div>
+      <div class="klbox" style="opacity:.45"><span class="kl">τ</span><div class="job">the secret evaluation point — already met</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 22 · GAMMA DELTA ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Greek letters, one attack at a time</p>
+  <h2>γ, δ — wall between public and private</h2>
+  <div class="body">
+    <div class="col" style="width:470px;justify-content:center;gap:18px">
+      <div class="panel" style="border-left:4px solid var(--bad)">
+        <div class="mtxname" style="text-align:left;color:var(--bad)">REMAINING ATTACK</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">Public inputs sit in a verifier-computed sum; private witness sits in C. Both are linear combinations of similar setup points — a prover could <b style="color:var(--chalk)">slide terms from one side into the other</b> and fake a public input.</p>
+      </div>
+      <div class="panel" style="border-left:4px solid var(--ok)">
+        <div class="mtxname" style="text-align:left;color:var(--ok)">FIX — DIVIDE THE LANES BY DIFFERENT SECRETS</div>
+        <p style="font:400 17.5px/1.6 var(--ui);color:var(--muted);margin:0">Public-input points are published <b class="tagG2">divided by γ</b>; witness &amp; quotient points <b class="tagG1">divided by δ</b>. The pairing check multiplies them back against [γ]₂ and [δ]₂ — a term in the wrong lane keeps a stray 1/γ or 1/δ and can never cancel.</p>
+      </div>
+    </div>
+    <div class="col grow" style="justify-content:center;gap:16px">
+      <svg id="fig-lanes" width="620" height="300" viewBox="0 0 620 300"></svg>
+      <div style="display:flex;gap:14px">
+        <div class="klbox" style="flex:1"><span class="kl tagG2">γ</span><div class="job"><b>job:</b> seals the public-input lane (verifier’s side)</div></div>
+        <div class="klbox" style="flex:1"><span class="kl tagG1">δ</span><div class="job"><b>job:</b> seals the witness + H·Z lane (prover’s side)</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 23 · FULL EQUATION ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Assembled</p>
+  <h2>The whole of Groth16, one equation</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="gap:22px;align-items:center">
+      <svg id="fig-vereq" width="1000" height="240" viewBox="0 0 1000 240"></svg>
+      <div style="display:flex;gap:16px;width:100%">
+        <div class="panel" style="flex:1.2;text-align:center"><div class="bigstat" style="font-size:28px">π = ( <span class="tagG1">A</span>, <span class="tagG2">B</span>, <span class="tagG1">C</span> )</div><p class="cap">A, C ∈ G₁ · B ∈ G₂ · ≈ 128 bytes, <b>whatever the circuit size</b></p></div>
+        <div class="panel" style="flex:1;text-align:center"><div class="bigstat" style="font-size:28px">3 pairings</div><p class="cap">+ one small MSM over public inputs — constant-time verify</p></div>
+        <div class="panel" style="flex:1;text-align:center"><div class="bigstat" style="font-size:28px">r, s</div><p class="cap">prover’s fresh randomizers → proofs are uniformly random: <b>zero-knowledge</b></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 24 · AUDITOR'S CORNER ============ -->
+<section class="slide" data-sec="4 · Trusted setup">
+  <p class="eyebrow">Auditor’s corner</p>
+  <h2>Where Groth16 systems actually break</h2>
+  <div class="body" style="align-items:center">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;flex:1">
+      <div class="checkcard"><span class="n">1</span><div><h3>Under-constrained circuits</h3><p>The R1CS admits witnesses the developer never intended — <b>the #1 real-world bug class</b>. The proof system is fine; the encoding lies.</p></div></div>
+      <div class="checkcard"><span class="n">2</span><div><h3>Toxic waste survives</h3><p>Setup secrets not destroyed → unlimited forgery. Zcash’s 2018 counterfeiting vulnerability lived in ceremony artifacts.</p></div></div>
+      <div class="checkcard"><span class="n">3</span><div><h3>Input aliasing</h3><p>Public inputs are field elements mod r — accepting values ≥ r gives two integer encodings of the same input (nullifier double-spend pattern).</p></div></div>
+      <div class="checkcard"><span class="n">4</span><div><h3>Proof malleability &amp; point checks</h3><p>(A, B) ↦ (−A, −B) still verifies — don’t use the proof itself as a uniqueness key. Verifier must check points are on-curve / in-subgroup.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 25 · PIPELINE ============ -->
+<section class="slide" data-sec="Wrap-up">
+  <p class="eyebrow">The whole pipeline</p>
+  <h2>Groth16 on one slide</h2>
+  <div class="body" style="align-items:center">
+    <div class="col grow" style="align-items:center;gap:26px">
+      <svg id="fig-pipe" width="1080" height="330" viewBox="0 0 1080 330"></svg>
+      <p class="formula" style="font-size:23px">a correct execution &nbsp;⇔&nbsp; a satisfied R1CS &nbsp;⇔&nbsp; a divisible polynomial &nbsp;⇔&nbsp; one pairing equation</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 26 · FURTHER READING ============ -->
+<section class="slide" data-sec="Wrap-up">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:30px">
+    <h1 style="font-size:72px">Questions?</h1>
+    <div class="panel" style="width:640px;text-align:left">
+      <div class="mtxname" style="text-align:left;color:var(--muted)">GO DEEPER</div>
+      <ul class="pts" style="gap:12px;margin-top:8px">
+        <li><b>RareSkills ZK Book</b> — modules 1–2 (this talk’s backbone) · rareskills.io/zk-book</li>
+        <li><b>Vitalik</b> — “QAPs: from zero to hero”</li>
+        <li><b>Groth 2016</b> — “On the Size of Pairing-Based Non-interactive Arguments”</li>
+        <li><b>Practice</b> — read Tornado Cash &amp; Semaphore circuits with slide 24 open</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div></div>
+
+<div class="hud"><span id="secname"></span><span id="counter"></span></div>
+<div id="bar"></div>
+
+<script>
+/* ---------- svg helpers ---------- */
+const NS='http://www.w3.org/2000/svg';
+function S(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function txt(p,x,y,s,fill,size,anchor,extra){const e=S('text',Object.assign({x,y,fill:fill||'#8B93A8','font-size':size||13,'text-anchor':anchor||'middle'},extra||{}),p);e.textContent=s;return e;}
+function poly(p,pts,stroke,w,extra){return S('polyline',Object.assign({points:pts.map(q=>q.join(',')).join(' '),fill:'none',stroke,'stroke-width':w||2.5,'stroke-linejoin':'round','stroke-linecap':'round'},extra||{}),p);}
+const C={g1:'#4FD8C4',g2:'#E8B44F',gt:'#E7709B',chalk:'#E9E7DE',mut:'#8B93A8',faint:'#5A6379',line:'#242E4D',bad:'#E0644F',ok:'#7BC96F',panel:'#111830'};
+function arrowDef(svg,id,color){const d=S('defs',{},svg);const m=S('marker',{id,viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},d);S('path',{d:'M0,0 L10,5 L0,10 z',fill:color},m);return 'url(#'+id+')';}
+
+/* ---------- title motif: e(A,B) -> GT ---------- */
+(function(){const v=document.getElementById('fig-title');if(!v)return;
+S('circle',{cx:120,cy:60,r:13,fill:C.g1},v);txt(v,120,95,'A ∈ G₁',C.g1,15);
+S('circle',{cx:280,cy:60,r:13,fill:C.g2},v);txt(v,280,95,'B ∈ G₂',C.g2,15);
+S('circle',{cx:440,cy:60,r:13,fill:C.g1},v);txt(v,440,95,'C ∈ G₁',C.g1,15);
+txt(v,200,66,'×',C.faint,22);txt(v,360,66,'×',C.faint,22);
+})();
+
+/* ---------- motivation flow ---------- */
+(function(){const v=document.getElementById('fig-flow');if(!v)return;const ar=arrowDef(v,'af',C.mut);
+function box(x,label,sub,color){S('rect',{x,y:55,width:160,height:80,rx:10,fill:C.panel,stroke:color,'stroke-width':1.5},v);txt(v,x+80,90,label,C.chalk,18,'middle',{'font-weight':600});txt(v,x+80,113,sub,C.mut,13);}
+box(10,'Prover','heavy work, off-chain',C.g1);box(230,'π = (A, B, C)','128-byte proof',C.gt);box(450,'Verifier','3 pairings, on-chain',C.g2);
+S('line',{x1:172,y1:95,x2:226,y2:95,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
+S('line',{x1:392,y1:95,x2:446,y2:95,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
+txt(v,310,170,'the proof does not grow with the computation',C.faint,14);
+})();
+
+/* ---------- clock mod 17 ---------- */
+(function(){const v=document.getElementById('fig-clock');if(!v)return;const cx=200,cy=200,R=150;
+S('circle',{cx,cy,r:R,fill:'none',stroke:C.line,'stroke-width':2},v);
+const P=i=>{const a=-Math.PI/2+i*2*Math.PI/17;return [cx+R*Math.cos(a),cy+R*Math.sin(a)];};
+const hop=[13,14,15,16,0,1,2,3];
+for(let i=0;i<17;i++){const [x,y]=P(i);const hot=hop.includes(i);
+  S('circle',{cx:x,cy:y,r:hot?6:4.5,fill:i===3?C.g2:(hot?C.g2:'#39435F')},v);
+  const [lx,ly]=[cx+(R+26)*Math.cos(-Math.PI/2+i*2*Math.PI/17),cy+(R+26)*Math.sin(-Math.PI/2+i*2*Math.PI/17)];
+  txt(v,lx,ly+5,i,i===12||i===3?C.chalk:C.faint,i===12||i===3?17:13,'middle',{'font-weight':i===12||i===3?600:400});}
+const [sx,sy]=P(12);S('circle',{cx:sx,cy:sy,r:8,fill:'none',stroke:C.chalk,'stroke-width':2},v);
+let d='';for(let k=0;k<=8;k++){const [x,y]=P((12+k)%17);d+=(k?'L':'M')+x+','+y+' ';}
+S('path',{d,fill:'none',stroke:C.g2,'stroke-width':2.5,'stroke-dasharray':'1 7','stroke-linecap':'round'},v);
+txt(v,cx,cy+7,'𝔽₁₇',C.chalk,30);
+})();
+
+/* ---------- EC over R with chord addition ---------- */
+(function(){const v=document.getElementById('fig-real');if(!v)return;
+const X0=-2.6,X1=3.4,Y0=-6.2,Y1=6.2,W=620,H=440;
+const mx=x=>(x-X0)/(X1-X0)*(W-40)+20, my=y=>H-((y-Y0)/(Y1-Y0)*(H-30)+15);
+const f=x=>x*x*x-2*x+2;
+S('line',{x1:20,y1:my(0),x2:W-10,y2:my(0),stroke:C.line,'stroke-width':1.5},v);
+S('line',{x1:mx(0),y1:10,x2:mx(0),y2:H-10,stroke:C.line,'stroke-width':1.5},v);
+let root=-1.7693;
+const up=[],dn=[];
+for(let x=root;x<=X1;x+=0.012){const y2=f(x);if(y2<0)continue;const y=Math.sqrt(y2);up.push([mx(x),my(y)]);dn.push([mx(x),my(-y)]);}
+poly(v,dn.reverse().concat(up),C.chalk,3);
+const px=-1.2,qx=0.8, py=Math.sqrt(f(px)), qy=Math.sqrt(f(qx));
+const lam=(py-qy)/(px-qx), x3=lam*lam-px-qx, y3i=py+lam*(x3-px), y3=-y3i; /* third intersection (x3,y3i); sum reflected */
+const lx0=X0+0.1, lx1=3.3, ly=x=>py+lam*(x-px);
+S('line',{x1:mx(lx0),y1:my(ly(lx0)),x2:mx(lx1),y2:my(ly(lx1)),stroke:C.g2,'stroke-width':2,'stroke-dasharray':'6 5',opacity:.9},v);
+S('line',{x1:mx(x3),y1:my(y3i),x2:mx(x3),y2:my(y3),stroke:C.gt,'stroke-width':2,'stroke-dasharray':'3 5'},v);
+function dot(x,y,c,label,dx,dy){S('circle',{cx:mx(x),cy:my(y),r:7,fill:c,stroke:'#0A0E1C','stroke-width':2},v);txt(v,mx(x)+dx,my(y)+dy,label,c,19,'middle',{'font-weight':600,'font-style':'italic'});}
+dot(px,py,C.g1,'P',-22,-8);dot(qx,qy,C.g2,'Q',-4,-16);
+dot(x3,y3i,C.mut,'',0,0);txt(v,mx(x3)+30,my(y3i)+4,'3rd point',C.faint,13,'start');
+dot(x3,y3,C.gt,'P + Q',44,6);
+txt(v,mx(1.15),my(-4.9),'y² = x³ − 2x + 2 over ℝ',C.faint,14,'start',{'font-style':'italic'});
+})();
+
+/* ---------- shared cloud data ---------- */
+const PTS=[[1,2],[1,15],[3,8],[3,9],[4,4],[4,13],[5,3],[5,14],[6,7],[6,10],[9,1],[9,16],[10,0],[11,5],[11,12],[16,6],[16,11]];
+function cloud(v,mark){ /* grid 0..16 */
+ const W=420,H=400,L=44,T=14,cw=(W-L-14)/16,ch=(H-46-T)/16;
+ const mx=x=>L+x*cw, my=y=>H-46-y*ch;
+ for(let i=0;i<=16;i+=4){S('line',{x1:mx(i),y1:T,x2:mx(i),y2:H-46,stroke:C.line,'stroke-width':1,opacity:.5},v);txt(v,mx(i),H-26,i,C.faint,12);
+  S('line',{x1:L,y1:my(i),x2:W-14,y2:my(i),stroke:C.line,'stroke-width':1,opacity:.5},v);txt(v,L-16,my(i)+4,i,C.faint,12);}
+ S('line',{x1:L,y1:my(8.5),x2:W-14,y2:my(8.5),stroke:C.gt,'stroke-width':1.2,'stroke-dasharray':'5 6',opacity:.55},v);
+ txt(v,W-18,my(8.5)-7,'symmetry y ↔ −y',C.gt,11.5,'end',{opacity:.8});
+ PTS.forEach(([x,y])=>S('circle',{cx:mx(x),cy:my(y),r:5.5,fill:mark?'#39435F':C.g1},v));
+ txt(v,220,H-4,'x',C.faint,13);txt(v,16,200,'y',C.faint,13);
+ return {mx,my};
+}
+(function(){const v=document.getElementById('fig-cloud');if(!v)return;cloud(v,false);})();
+
+/* ---------- point table ---------- */
+(function(){const t=document.getElementById('pttab');if(!t)return;
+const all=[['𝒪','∞']].concat(PTS.map(p=>[p[0],p[1]]));
+let h='<tr><th></th>'+all.map((_,i)=>'<th>'+(i===0?'':i)+'</th>').join('')+'</tr>';
+h+='<tr><td style="color:var(--muted);font-family:var(--ui);font-size:13px">x</td>'+all.map((p,i)=>'<td'+(i===0?' style="color:var(--gt)"':'')+'>'+p[0]+'</td>').join('')+'</tr>';
+h+='<tr><td style="color:var(--muted);font-family:var(--ui);font-size:13px">y</td>'+all.map((p,i)=>'<td'+(i===0?' style="color:var(--gt)"':'')+'>'+p[1]+'</td>').join('')+'</tr>';
+t.innerHTML=h;})();
+
+/* ---------- hops walk ---------- */
+(function(){const v=document.getElementById('fig-hops');if(!v)return;const {mx,my}=cloud(v,true);
+const ar=arrowDef(v,'ah',C.g1);
+const walk=[[3,8],[9,1],[4,13],[1,2],[5,3],[11,12]];
+for(let i=0;i<walk.length-1;i++){const [x1,y1]=walk[i],[x2,y2]=walk[i+1];
+ const X1=mx(x1),Y1=my(y1),X2=mx(x2),Y2=my(y2);const mxid=(X1+X2)/2+(Y1-Y2)*0.18,myid=(Y1+Y2)/2+(X2-X1)*0.18;
+ S('path',{d:`M${X1},${Y1} Q${mxid},${myid} ${X2},${Y2}`,fill:'none',stroke:C.g1,'stroke-width':2,'marker-end':ar,opacity:.9},v);}
+walk.forEach(([x,y],i)=>{S('circle',{cx:mx(x),cy:my(y),r:6.5,fill:C.g1,stroke:'#0A0E1C','stroke-width':2},v);
+ txt(v,mx(x)+((x>13)?-16:14),my(y)-9,(i===0?'G':(i+1)+'G'),i===0?C.g2:C.g1,14,'middle',{'font-weight':600});});
+})();
+
+/* ---------- pairing black box ---------- */
+(function(){const v=document.getElementById('fig-pair');if(!v)return;const ar1=arrowDef(v,'ap1',C.g1),ar2=arrowDef(v,'ap2',C.g2),ar3=arrowDef(v,'ap3',C.gt);
+S('circle',{cx:70,cy:90,r:15,fill:C.g1},v);txt(v,70,130,'[a]₁ = aG₁',C.g1,17);txt(v,70,152,'in G₁',C.faint,13);
+S('circle',{cx:70,cy:240,r:15,fill:C.g2},v);txt(v,70,280,'[b]₂ = bG₂',C.g2,17);txt(v,70,302,'in G₂',C.faint,13);
+S('path',{d:'M95,90 C180,90 190,150 245,158',fill:'none',stroke:C.g1,'stroke-width':2.5,'marker-end':ar1},v);
+S('path',{d:'M95,240 C180,240 190,180 245,172',fill:'none',stroke:C.g2,'stroke-width':2.5,'marker-end':ar2},v);
+S('rect',{x:255,y:120,width:150,height:92,rx:12,fill:C.panel,stroke:'#39435F','stroke-width':1.5},v);
+txt(v,330,158,'pairing',C.mut,14);txt(v,330,190,'e( · , · )',C.chalk,26,'middle',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
+S('line',{x1:410,y1:166,x2:480,y2:166,stroke:C.gt,'stroke-width':2.5,'marker-end':ar3},v);
+S('circle',{cx:530,cy:166,r:17,fill:C.gt},v);
+txt(v,530,215,'e(G₁,G₂)ᵃᵇ',C.gt,20);txt(v,530,240,'in G_T — scalars multiplied',C.faint,13.5);
+txt(v,330,300,'e(aG₁, bG₂) = e(G₁, G₂)ᵃᵇ',C.chalk,23,'middle',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
+})();
+
+/* ---------- circuit ---------- */
+(function(){const v=document.getElementById('fig-circuit');if(!v)return;const ar=arrowDef(v,'ac',C.mut);
+function gate(x,y,op,c){S('rect',{x:x-30,y:y-30,width:60,height:60,rx:12,fill:C.panel,stroke:c,'stroke-width':2},v);txt(v,x,y+11,op,c,32);}
+function wire(x1,y1,x2,y2,lab,c){S('path',{d:`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`,fill:'none',stroke:c||C.mut,'stroke-width':2,'marker-end':ar},v);if(lab)txt(v,(x1+x2)/2,(y1+y2)/2-8,lab,C.chalk,15,'middle',{'font-style':'italic'});}
+txt(v,60,105,'x',C.g1,24,'middle',{'font-style':'italic','font-weight':600});S('circle',{cx:60,cy:130,r:6,fill:C.g1},v);
+gate(220,130,'×',C.g2); gate(380,190,'×',C.g2); gate(500,280,'+',C.g1);
+wire(70,125,186,112);wire(70,138,186,148);
+wire(252,130,346,178,'v₁ = 9');
+wire(66,136,346,205);
+wire(412,190,466,262,'v₂ = 27');
+wire(66,140,466,282);
+txt(v,410,320,'5',C.chalk,18,'middle',{'font-style':'italic'});S('circle',{cx:410,cy:302,r:5,fill:C.faint},v);wire(416,300,466,296);
+wire(532,280,590,280,'');
+txt(v,596,268,'out',C.g2,19,'middle',{'font-style':'italic','font-weight':600});txt(v,596,292,'= 35',C.mut,15);
+txt(v,220,60,'gate 1',C.faint,13);txt(v,380,120,'gate 2',C.faint,13);txt(v,500,210,'gate 3 (linear)',C.faint,13);
+txt(v,310,395,'x³ + x + 5  →  v₁ = x·x   v₂ = v₁·x   out = v₂ + x + 5',C.mut,16.5,'middle',{'font-family':'Menlo, monospace'});
+})();
+
+/* ---------- matrices ---------- */
+(function(){
+const A=[[0,0,1,0,0],[0,0,0,1,0],[5,0,1,0,1]],B=[[0,0,1,0,0],[0,0,1,0,0],[1,0,0,0,0]],Cm=[[0,0,0,1,0],[0,0,0,0,1],[0,1,0,0,0]];
+function fill(id,M){const t=document.getElementById(id);if(!t)return;t.innerHTML=M.map((r,i)=>'<tr'+(i===0?' class="hl"':'')+'>'+r.map(c=>'<td'+(c?' class="nz"':'')+'>'+c+'</td>').join('')+'</tr>').join('');}
+fill('mA',A);fill('mB',B);fill('mC',Cm);
+})();
+
+/* ---------- schwartz-zippel ---------- */
+(function(){const v=document.getElementById('fig-sz');if(!v)return;
+const W=640,H=400,X0=-4,X1=4,Y0=-3.4,Y1=5.4;
+const mx=x=>(x-X0)/(X1-X0)*(W-40)+24, my=y=>H-30-((y-Y0)/(Y1-Y0)*(H-55));
+S('line',{x1:24,y1:my(0),x2:W-16,y2:my(0),stroke:C.line,'stroke-width':1.5},v);
+const f=x=>0.09*x*x*x-0.5*x+1.6, g=x=>f(x)+0.10*(x-2)*(x+1)*(x+3);
+const pf=[],pg=[];for(let x=X0;x<=X1;x+=0.03){pf.push([mx(x),my(f(x))]);pg.push([mx(x),my(g(x))]);}
+poly(v,pf,C.g1,3);poly(v,pg,C.g2,3);
+[[2],[ -1],[-3]].forEach(([r])=>{S('circle',{cx:mx(r),cy:my(f(r)),r:6,fill:'none',stroke:C.chalk,'stroke-width':2},v);});
+txt(v,mx(-2.05),my(f(-2.05))+38,'agree at only d = 3 points ○',C.mut,14,'middle');
+const tx=3.1;S('line',{x1:mx(tx),y1:24,x2:mx(tx),y2:H-30,stroke:C.gt,'stroke-width':2,'stroke-dasharray':'6 5'},v);
+S('circle',{cx:mx(tx),cy:my(f(tx)),r:6,fill:C.g1},v);S('circle',{cx:mx(tx),cy:my(g(tx)),r:6,fill:C.g2},v);
+txt(v,mx(tx),18,'random τ',C.gt,15,'middle',{'font-weight':600});
+txt(v,mx(tx)-14,(my(f(tx))+my(g(tx)))/2+5,'≠',C.gt,22,'end');
+txt(v,mx(-3.4),my(f(-3.4))-16,'f',C.g1,19,'middle',{'font-style':'italic','font-weight':600});
+txt(v,mx(-3.55),my(g(-3.55))+26,'g',C.g2,19,'middle',{'font-style':'italic','font-weight':600});
+})();
+
+/* ---------- lagrange ---------- */
+(function(){const v=document.getElementById('fig-lagr');if(!v)return;
+const W=640,H=410,X0=0.45,X1=3.55,Y0=-2.6,Y1=8.6;
+const mx=x=>(x-X0)/(X1-X0)*(W-56)+40, my=y=>H-28-((y-Y0)/(Y1-Y0)*(H-52));
+S('line',{x1:40,y1:my(0),x2:W-16,y2:my(0),stroke:C.line,'stroke-width':1.5},v);
+[1,2,3].forEach(i=>{S('line',{x1:mx(i),y1:my(0)-5,x2:mx(i),y2:my(0)+5,stroke:C.mut,'stroke-width':2},v);txt(v,mx(i),my(0)+22,'x = '+i,C.faint,13);});
+const l1=x=>(x-2)*(x-3)/2, l2=x=>-(x-1)*(x-3), l3=x=>(x-1)*(x-2)/2;
+const P=x=>4*l1(x)+7*l2(x)+1*l3(x);
+function plot(fn,c,w,dash){const pts=[];for(let x=X0;x<=X1;x+=0.02)pts.push([mx(x),my(fn(x))]);poly(v,pts,c,w,dash?{'stroke-dasharray':'5 5',opacity:.75}:{});}
+plot(x=>4*l1(x),C.g1,1.8,true);plot(x=>7*l2(x),C.g2,1.8,true);plot(x=>1*l3(x),C.gt,1.8,true);
+plot(P,C.chalk,3.5);
+const vals=[[1,4,C.g1],[2,7,C.g2],[3,1,C.gt]];
+vals.forEach(([x,y,c])=>{S('circle',{cx:mx(x),cy:my(y),r:7.5,fill:c,stroke:'#0A0E1C','stroke-width':2.5},v);txt(v,mx(x)+20,my(y)-12,'('+x+', '+y+')',c,16,'start',{'font-weight':600});});
+txt(v,mx(0.62),my(4.2),'4·ℓ₁',C.g1,14,'start');txt(v,mx(1.92),my(7.9),'7·ℓ₂',C.g2,14);txt(v,mx(3.28),my(1.9),'1·ℓ₃',C.gt,14);
+txt(v,mx(2.62),my(5.6),'P(x) = Σ yᵢ·ℓᵢ(x)',C.chalk,17,'start',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
+})();
+
+/* ---------- qap map (columns -> polynomials) ---------- */
+(function(){const v=document.getElementById('fig-qapmap');if(!v)return;const ar=arrowDef(v,'aq',C.g1);
+/* mini matrix A with col highlighted */
+const A=[[0,0,1,0,0],[0,0,0,1,0],[5,0,1,0,1]];
+const x0=40,y0=80,cw=46,chh=44;
+txt(v,x0+cw*2.5,y0-36,'matrix A — column per witness slot, row per gate',C.mut,15);
+const heads=['1','out','x','v₁','v₂'];
+heads.forEach((h,j)=>txt(v,x0+j*cw+cw/2,y0-8,h,j===2?C.g1:C.faint,14,'middle',{'font-weight':j===2?700:400}));
+A.forEach((r,i)=>r.forEach((c,j)=>{S('rect',{x:x0+j*cw,y:y0+i*chh,width:cw-4,height:chh-4,rx:6,fill:j===2?'#173A38':(c?'#1A2340':'#0E1426'),stroke:j===2?C.g1:C.line,'stroke-width':j===2?1.6:1},v);txt(v,x0+j*cw+cw/2-2,y0+i*chh+chh/2+4,c,c||j===2?C.chalk:C.faint,17);}));
+[0,1,2].forEach(i=>txt(v,x0-16,y0+i*chh+chh/2+4,'g'+(i+1),C.faint,12,'end'));
+/* arrow */
+S('path',{d:'M290,145 C350,145 360,145 420,145',fill:'none',stroke:C.g1,'stroke-width':2.5,'marker-end':ar},v);
+txt(v,355,128,'interpolate over x = 1, 2, 3',C.g1,14);
+/* small plot of A_x(x): column x of A = values (1,1),(2,0),(3,1) */
+const px0=430,pw=250,py0=40,ph=210;
+const l1=x=>(x-2)*(x-3)/2,l2=x=>-(x-1)*(x-3),l3=x=>(x-1)*(x-2)/2;
+const Ax=x=>1*l1(x)+0*l2(x)+1*l3(x);
+const qmx=x=>px0+(x-0.6)/(3.4-0.6)*pw, qmy=y=>py0+ph-((y+0.6)/2.4)*ph;
+S('line',{x1:px0,y1:qmy(0),x2:px0+pw,y2:qmy(0),stroke:C.line,'stroke-width':1.2},v);
+const pts=[];for(let x=0.6;x<=3.4;x+=0.02)pts.push([qmx(x),qmy(Ax(x))]);poly(v,pts,C.g1,2.6);
+[[1,1],[2,0],[3,1]].forEach(([x,y])=>{S('circle',{cx:qmx(x),cy:qmy(y),r:5.5,fill:C.g1,stroke:'#0A0E1C','stroke-width':2},v);txt(v,qmx(x),qmy(0)+20,x,C.faint,12);});
+txt(v,px0+pw/2,py0+ph+44,'A₍ₓ₎(x): the x-column as a polynomial — value 1, 0, 1 at gates 1, 2, 3',C.mut,14);
+/* bundle formula */
+txt(v,780,120,'…× witness, summed:',C.mut,15);
+txt(v,780,165,'A(x) = Σ wᵢ·Aᵢ(x)',C.chalk,26,'middle',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
+txt(v,780,205,'B(x), C(x) likewise',C.mut,15);
+S('rect',{x:660,y:85,width:240,height:150,rx:12,fill:'none',stroke:C.line,'stroke-width':1.5},v);
+/* bottom row: three chips */
+['A(x) carries every left input','B(x) every right input','C(x) every output'].forEach((s,i)=>{
+ S('rect',{x:110+i*260,y:305,width:240,height:44,rx:22,fill:C.panel,stroke:C.line},v);
+ txt(v,230+i*260,332,s,[C.g1,C.g2,C.gt][i],14.5);});
+})();
+
+/* ---------- qap vanishing plot ---------- */
+(function(){const v=document.getElementById('fig-qap');if(!v)return;
+const A=x=>10*x*x-24*x+17, B=x=>-x*x+3*x+1, Cc=x=>-5*x*x+33*x-19;
+const T=x=>A(x)*B(x)-Cc(x);
+const W=640,H=380,X0=0.68,X1=3.12,Y0=-11,Y1=13;
+const mx=x=>(x-X0)/(X1-X0)*(W-60)+42, my=y=>H-40-((y-Y0)/(Y1-Y0)*(H-64));
+S('line',{x1:42,y1:my(0),x2:W-18,y2:my(0),stroke:C.line,'stroke-width':1.5},v);
+/* faint Z(x) scaled */
+const Z=x=>(x-1)*(x-2)*(x-3)*6;
+const pz=[];for(let x=X0;x<=X1;x+=0.01)pz.push([mx(x),my(Z(x))]);
+poly(v,pz,C.faint,1.8,{'stroke-dasharray':'5 5',opacity:.7});
+const pt=[];for(let x=X0;x<=X1;x+=0.008){const y=T(x);if(y>Y0-2&&y<Y1+2)pt.push([mx(x),my(y)]);}
+poly(v,pt,C.gt,3.5);
+[1,2,3].forEach(r=>{S('circle',{cx:mx(r),cy:my(0),r:7,fill:C.g2,stroke:'#0A0E1C','stroke-width':2.5},v);txt(v,mx(r),my(0)+26,'gate '+r,C.g2,14,'middle',{'font-weight':600});});
+txt(v,mx(1.42),my(-8.6),'A·B − C',C.gt,18,'middle',{'font-style':'italic','font-weight':600});
+txt(v,mx(2.8),my(6.2),'Z(x) ~ (x−1)(x−2)(x−3)',C.faint,13.5,'middle',{'font-style':'italic'});
+})();
+
+/* ---------- funnel ---------- */
+(function(){const v=document.getElementById('fig-funnel');if(!v)return;const ar=arrowDef(v,'afn',C.mut);
+function stage(x,y,w,h,title,sub,c){S('rect',{x,y,width:w,height:h,rx:12,fill:C.panel,stroke:c,'stroke-width':1.5},v);txt(v,x+w/2,y+h/2-4,title,C.chalk,17,'middle',{'font-weight':600});txt(v,x+w/2,y+h/2+20,sub,C.mut,13.5);}
+stage(10,40,200,250,'m constraints','matrices A, B, C',C.line);
+stage(270,90,200,150,'one identity','A·B − C = H·Z',C.g1);
+stage(530,125,160,80,'one point τ','field element',C.g2);
+S('line',{x1:212,y1:165,x2:266,y2:165,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
+S('line',{x1:472,y1:165,x2:526,y2:165,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
+txt(v,239,150,'QAP',C.faint,13);txt(v,499,150,'S–Z',C.faint,13);
+txt(v,350,320,'millions of checks → one evaluation',C.mut,16);
+})();
+
+/* ---------- toxic waste ---------- */
+(function(){const v=document.getElementById('fig-toxic');if(!v)return;const ar=arrowDef(v,'at',C.mut);
+S('circle',{cx:180,cy:60,r:26,fill:'none',stroke:C.g2,'stroke-width':2},v);txt(v,180,68,'τ',C.g2,26,'middle',{'font-style':'italic'});
+txt(v,180,20,'sampled at random',C.mut,13);
+S('line',{x1:150,y1:85,x2:80,y2:150,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
+S('line',{x1:210,y1:85,x2:280,y2:150,stroke:C.bad,'stroke-width':2,'marker-end':arrowDef(v,'atb',C.bad)},v);
+S('rect',{x:16,y:160,width:150,height:64,rx:10,fill:C.panel,stroke:C.g1,'stroke-width':1.5},v);
+txt(v,91,188,'publish',C.mut,13);txt(v,91,210,'[τ⁰]₁ … [τᵈ]₁',C.g1,16);
+/* trash can */
+const tc=S('g',{transform:'translate(245,160)'},v);
+S('path',{d:'M10,14 L80,14 M20,14 L25,80 Q26,88 34,88 L56,88 Q64,88 65,80 L70,14 M35,14 L35,6 L55,6 L55,14 M33,26 L36,74 M45,26 L45,74 M57,26 L54,74',fill:'none',stroke:C.bad,'stroke-width':3,'stroke-linecap':'round'},tc);
+txt(v,290,275,'destroy τ',C.bad,15,'middle',{'font-weight':600});
+txt(v,290,296,'“toxic waste”',C.faint,13);
+txt(v,91,275,'the CRS everyone uses',C.faint,13);
+})();
+
+/* ---------- mpc chain ---------- */
+(function(){const v=document.getElementById('fig-mpc');if(!v)return;const ar=arrowDef(v,'am',C.mut);
+const names=['participant 1','participant 2','participant 3','… participant N'];
+names.forEach((n,i)=>{const x=30+i*220;
+ S('rect',{x,y:60,width:170,height:110,rx:12,fill:C.panel,stroke:i===2?C.ok:C.line,'stroke-width':i===2?2:1.5},v);
+ S('circle',{cx:x+85,cy:95,r:16,fill:'none',stroke:i===2?C.ok:C.mut,'stroke-width':2},v);
+ txt(v,x+85,101,'τ'+(i<3?['₁','₂','₃'][i]:'ₙ'),i===2?C.ok:C.mut,15);
+ txt(v,x+85,138,n,C.mut,13.5);
+ txt(v,x+85,157,i===2?'honest — deletes τ₃ ✓':'mixes in own secret',i===2?C.ok:C.faint,12);
+ if(i<3)S('line',{x1:x+202,y1:115,x2:x+248-30,y2:115,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);});
+txt(v,450,230,'final secret τ = τ₁ · τ₂ · τ₃ ⋯ τₙ — unknown unless ALL collude',C.chalk,17);
+})();
+
+/* ---------- lanes gamma delta ---------- */
+(function(){const v=document.getElementById('fig-lanes');if(!v)return;
+function lane(y,c,tag,items,side){
+ S('rect',{x:10,y,width:600,height:110,rx:12,fill:C.panel,stroke:c,'stroke-width':1.8},v);
+ txt(v,30,y+30,tag,c,16,'start',{'font-weight':700,'letter-spacing':'.08em'});
+ items.forEach((s,i)=>{S('rect',{x:30+i*186,y:y+46,width:170,height:40,rx:20,fill:'#0E1426',stroke:C.line},v);txt(v,115+i*186,y+71,s,C.chalk,13.5);});
+ txt(v,586,y+30,side,C.faint,12.5,'end');
+ /* lock */
+ const lx=560,ly=y+18;S('rect',{x:lx-9,y:ly-6,width:18,height:14,rx:3,fill:c},v);S('path',{d:`M${lx-5},${ly-6} v-5 a5,5 0 0 1 10,0 v5`,fill:'none',stroke:c,'stroke-width':2.5},v);
+}
+lane(20,C.g2,'PUBLIC LANE — ÷ γ',['public inputs aᵢ','their Aᵢ,Bᵢ,Cᵢ terms'],'verifier computes');
+lane(160,C.g1,'PRIVATE LANE — ÷ δ',['witness terms → C','quotient H(τ)·Z(τ)'],'prover computes');
+S('line',{x1:10,y1:145,x2:610,y2:145,stroke:C.bad,'stroke-width':2,'stroke-dasharray':'8 6'},v);
+txt(v,310,150,'✂ terms cannot cross — wrong lane keeps a stray 1/γ or 1/δ',C.bad,13,'middle',{'baseline-shift':'-28px'});
+})();
+
+/* ---------- verification equation ---------- */
+(function(){const v=document.getElementById('fig-vereq');if(!v)return;
+const y=95;
+const segs=[
+ ['e(A, B)',C.chalk,'the prover’s claim','α+A(τ)+…  ×  β+B(τ)+…'],
+ ['=',C.faint,'',''],
+ ['e([α]₁, [β]₂)',C.g2,'consistency anchor','fixed at setup'],
+ ['·',C.faint,'',''],
+ ['e(Σ aᵢ·Lᵢ, [γ]₂)',C.gt,'public-input lane','verifier computes'],
+ ['·',C.faint,'',''],
+ ['e(C, [δ]₂)',C.g1,'witness + H·Z lane','prover computes']];
+let x=20;
+segs.forEach(([s,c,job,sub])=>{
+ const t=txt(v,x,y,s,c,s.length<3?30:31,'start',{'font-family':'Palatino, Georgia, serif','font-style':'italic'});
+ const w=(s.length<3?26:s.length*15.5)+18;
+ if(job){S('line',{x1:x+ (s.length*15.5)/2, y1:y+22, x2:x+(s.length*15.5)/2, y2:y+52, stroke:c,'stroke-width':1.5,'stroke-dasharray':'3 4'},v);
+  txt(v,x+(s.length*15.5)/2,y+74,job,c,15,'middle',{'font-weight':600});
+  txt(v,x+(s.length*15.5)/2,y+96,sub,C.faint,12.5);}
+ x+=w+ (s.length<3?4:20);});
+txt(v,500,30,'accept  ⇔  this single G_T equation holds',C.mut,16);
+})();
+
+/* ---------- pipeline ---------- */
+(function(){const v=document.getElementById('fig-pipe');if(!v)return;const ar=arrowDef(v,'app',C.mut);
+const steps=[['Program','x³+x+5=35',C.chalk],['Circuit','mult gates',C.chalk],['R1CS','Aw ∘ Bw = Cw',C.g1],['QAP','AB−C = HZ',C.g2],['Proof π','(A, B, C)',C.gt],['Pairing check','3 pairings',C.ok]];
+steps.forEach(([t,s,c],i)=>{const x=14+i*180;
+ S('rect',{x,y:90,width:150,height:86,rx:12,fill:C.panel,stroke:c===C.chalk?C.line:c,'stroke-width':1.6},v);
+ txt(v,x+75,126,t,C.chalk,17,'middle',{'font-weight':600});
+ txt(v,x+75,152,s,C.mut,13);
+ if(i<5)S('line',{x1:x+152,y1:133,x2:x+178,y2:133,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);});
+/* CRS drop */
+S('rect',{x:374,y:230,width:330,height:64,rx:12,fill:'none',stroke:C.g2,'stroke-width':1.5,'stroke-dasharray':'7 6'},v);
+txt(v,539,256,'trusted setup — CRS',C.g2,14.5,'middle',{'font-weight':600});
+txt(v,539,277,'powers of τ · α β embedded · lanes ÷ γ, ÷ δ',C.mut,12.5);
+S('line',{x1:539,y1:228,x2:625,y2:180,stroke:C.g2,'stroke-width':1.6,'marker-end':arrowDef(v,'app2',C.g2)},v);
+S('line',{x1:460,y1:228,x2:435,y2:180,stroke:C.g2,'stroke-width':1.6,'marker-end':arrowDef(v,'app3',C.g2)},v);
+txt(v,180,40,'compile time',C.faint,13);txt(v,900,40,'runtime — per proof',C.faint,13);
+S('line',{x1:60,y1:52,x2:60,y2:80,stroke:C.faint,'stroke-width':1},v);S('line',{x1:900,y1:52,x2:900,y2:80,stroke:C.faint,'stroke-width':1},v);
+})();
+
+/* ---------- deck engine ---------- */
+const slides=[...document.querySelectorAll('.slide')];
+let cur=Math.min(Math.max(parseInt(location.hash.slice(1))||1,1),slides.length)-1;
+const bar=document.getElementById('bar'),cnt=document.getElementById('counter'),sec=document.getElementById('secname');
+function show(i){cur=(i+slides.length)%slides.length;slides.forEach((s,j)=>s.classList.toggle('on',j===cur));
+ bar.style.width=((cur+1)/slides.length*100)+'%';cnt.textContent=(cur+1)+' / '+slides.length;
+ sec.textContent=slides[cur].dataset.sec||'';history.replaceState(null,'','#'+(cur+1));}
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(cur+1);}
+ if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(cur-1);}
+ if(e.key==='Home')show(0); if(e.key==='End')show(slides.length-1);});
+addEventListener('click',e=>{if(e.target.closest('a'))return;show(cur+(e.clientX>innerWidth/2?1:-1));});
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);document.getElementById('stage').style.transform='scale('+s+')';}
+addEventListener('resize',fit);fit();show(cur);
+</script>
+</html>
