@@ -100,7 +100,7 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
     <div class="col grow">
       <svg id="fig-flow" width="620" height="190" viewBox="0 0 620 190"></svg>
       <div class="panel" style="display:flex;gap:38px;justify-content:space-around;text-align:center">
-        <div><div class="bigstat tagG1">≈ 128 B</div><div class="cap">proof size — always</div></div>
+        <div><div class="bigstat tagG1">256 B</div><div class="cap">proof size — always</div></div>
         <div><div class="bigstat tagG2">≈ 200k gas</div><div class="cap">on-chain verification</div></div>
         <div><div class="bigstat tagGT">0 bits</div><div class="cap">leaked about the witness</div></div>
       </div>
@@ -725,7 +725,7 @@ table.mtx tr.hl td.nz{background:#2E3C6E}
     <div class="col grow" style="gap:22px;align-items:center">
       <svg id="fig-vereq" width="1000" height="240" viewBox="0 0 1000 240"></svg>
       <div style="display:flex;gap:16px;width:100%">
-        <div class="panel" style="flex:1.2;text-align:center"><div class="bigstat" style="font-size:28px">π = ( <span class="tagG1">A</span>, <span class="tagG2">B</span>, <span class="tagG1">C</span> )</div><p class="cap">A, C ∈ G₁ · B ∈ G₂ · ≈ 128 bytes, <b>whatever the circuit size</b></p></div>
+        <div class="panel" style="flex:1.2;text-align:center"><div class="bigstat" style="font-size:28px">π = ( <span class="tagG1">A</span>, <span class="tagG2">B</span>, <span class="tagG1">C</span> )</div><p class="cap">A, C ∈ G₁ (64 B each) · B ∈ G₂ (128 B) · = 256 bytes, <b>whatever the circuit size</b></p></div>
         <div class="panel" style="flex:1;text-align:center"><div class="bigstat" style="font-size:28px">3 pairings</div><p class="cap">+ one small MSM over public inputs — constant-time verify</p></div>
         <div class="panel" style="flex:1;text-align:center"><div class="bigstat" style="font-size:28px">r, s</div><p class="cap">prover’s fresh randomizers → proofs are uniformly random: <b>zero-knowledge</b></p></div>
       </div>
@@ -799,7 +799,7 @@ txt(v,200,66,'×',C.faint,22);txt(v,360,66,'×',C.faint,22);
 /* ---------- motivation flow ---------- */
 (function(){const v=document.getElementById('fig-flow');if(!v)return;const ar=arrowDef(v,'af',C.mut);
 function box(x,label,sub,color){S('rect',{x,y:55,width:160,height:80,rx:10,fill:C.panel,stroke:color,'stroke-width':1.5},v);txt(v,x+80,90,label,C.chalk,18,'middle',{'font-weight':600});txt(v,x+80,113,sub,C.mut,13);}
-box(10,'Prover','heavy work, off-chain',C.g1);box(230,'π = (A, B, C)','128-byte proof',C.gt);box(450,'Verifier','3 pairings, on-chain',C.g2);
+box(10,'Prover','heavy work, off-chain',C.g1);box(230,'π = (A, B, C)','256-byte proof',C.gt);box(450,'Verifier','3 pairings, on-chain',C.g2);
 S('line',{x1:172,y1:95,x2:226,y2:95,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
 S('line',{x1:392,y1:95,x2:446,y2:95,stroke:C.mut,'stroke-width':2,'marker-end':ar},v);
 txt(v,310,170,'the proof does not grow with the computation',C.faint,14);
