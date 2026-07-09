@@ -831,15 +831,15 @@ let root=-1.7693;
 const up=[],dn=[];
 for(let x=root;x<=X1;x+=0.012){const y2=f(x);if(y2<0)continue;const y=Math.sqrt(y2);up.push([mx(x),my(y)]);dn.push([mx(x),my(-y)]);}
 poly(v,dn.reverse().concat(up),C.chalk,3);
-const px=-1.2,qx=0.8, py=Math.sqrt(f(px)), qy=Math.sqrt(f(qx));
+const px=-1.6,qx=0.9, py=Math.sqrt(f(px)), qy=-Math.sqrt(f(qx));
 const lam=(py-qy)/(px-qx), x3=lam*lam-px-qx, y3i=py+lam*(x3-px), y3=-y3i; /* third intersection (x3,y3i); sum reflected */
 const lx0=X0+0.1, lx1=3.3, ly=x=>py+lam*(x-px);
 S('line',{x1:mx(lx0),y1:my(ly(lx0)),x2:mx(lx1),y2:my(ly(lx1)),stroke:C.g2,'stroke-width':2,'stroke-dasharray':'6 5',opacity:.9},v);
 S('line',{x1:mx(x3),y1:my(y3i),x2:mx(x3),y2:my(y3),stroke:C.gt,'stroke-width':2,'stroke-dasharray':'3 5'},v);
 function dot(x,y,c,label,dx,dy){S('circle',{cx:mx(x),cy:my(y),r:7,fill:c,stroke:'#0A0E1C','stroke-width':2},v);txt(v,mx(x)+dx,my(y)+dy,label,c,19,'middle',{'font-weight':600,'font-style':'italic'});}
-dot(px,py,C.g1,'P',-22,-8);dot(qx,qy,C.g2,'Q',-4,-16);
-dot(x3,y3i,C.mut,'',0,0);txt(v,mx(x3)+30,my(y3i)+4,'3rd point',C.faint,13,'start');
-dot(x3,y3,C.gt,'P + Q',44,6);
+dot(px,py,C.g1,'P',-22,-8);dot(qx,qy,C.g2,'Q',-10,26);
+dot(x3,y3i,C.mut,'',0,0);txt(v,mx(x3)+30,my(y3i)+10,'3rd point',C.faint,13,'start');
+dot(x3,y3,C.gt,'P + Q',48,-2);
 txt(v,mx(1.15),my(-4.9),'y² = x³ − 2x + 2 over ℝ',C.faint,14,'start',{'font-style':'italic'});
 })();
 
